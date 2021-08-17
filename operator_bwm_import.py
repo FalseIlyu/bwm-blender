@@ -26,10 +26,10 @@ class ImportSomeData(Operator, ImportHelper):
     bl_label = "Import Some Data"
 
     # ImportHelper mixin class uses this
-    filename_ext = ".txt"
+    filename_ext = ".bwm"
 
     filter_glob: StringProperty(
-        default="*.txt",
+        default="*.bwm",
         options={'HIDDEN'},
         maxlen=255,  # Max internal buffer length, longer would be clamped.
     )
@@ -58,7 +58,7 @@ class ImportSomeData(Operator, ImportHelper):
 
 # Only needed if you want to add into a dynamic menu
 def menu_func_import(self, context):
-    self.layout.operator(ImportSomeData.bl_idname, text="Text Import Operator")
+    self.layout.operator(ImportSomeData.bl_idname, text="Black & White Model (.bwm)")
 
 
 def register():
