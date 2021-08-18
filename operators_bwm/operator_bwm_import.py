@@ -1,14 +1,9 @@
 import bpy
+from file_definition_bwm import BWMFile
 
-
-def read_some_data(context, filepath, use_some_setting):
-    print("running read_some_data...")
-    f = open(filepath, 'r', encoding='utf-8')
-    data = f.read()
-    f.close()
-
-    # would normally load the data here
-    print(data)
+def read_some_data(context, filepath):
+    print("Reading data from Black & White Model file")
+    BWMFile.readInit(filepath)
 
     return {'FINISHED'}
 
