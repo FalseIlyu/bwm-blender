@@ -1,6 +1,6 @@
 bl_info = {
-    "name": "BWM File Format",
-    "blender": (2,98,0),
+    "name": "Black & White Model (.bwm) Format",
+    "blender": (2,93,0),
     "category": "Import-Export",
 }
 

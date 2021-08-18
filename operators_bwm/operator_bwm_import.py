@@ -1,5 +1,5 @@
 import bpy
-from file_definition_bwm import BWMFile
+from operators_bwm.file_definition_bwm import BWMFile
 
 def read_some_data(context, filepath):
     print("Reading data from Black & White Model file")

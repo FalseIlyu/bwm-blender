@@ -1,4 +1,6 @@
-def read_int32(io.BufferedReader: reader) int:
+from io import BufferedReader
+
+def read_int32(reader : BufferedReader) -> int:
     return int.int_from_bytes(reader.read(3))
 
 class BWMFile:
@@ -9,7 +11,6 @@ class BWMFile:
           self.modelHeader = BWMHeader.readInit(file)
         return self
 
-
 class BWMHeader:
     '''
      '  Header for BWM files, contains identifier for the format 
@@ -17,7 +18,7 @@ class BWMHeader:
      '  Size :   0x34
     '''
 
-    def readInit(_io.BufferedReader: reader):
+    def readInit(reader : BufferedReader):
 
         self.fileIdentifier = str(reader.read(40)) # 0x00
         self.size = read_int32(reader) # 0x28
@@ -32,7 +33,7 @@ class LionheadModelHeader:
      '  Size :   0x84
     '''
 
-    def readInit(_io.BufferedReader: reader):
+    def readInit(reader : BufferedReader):
         
         self.notHeaderSize = read_int32(reader) # 0x34
         reader.read(64)
