@@ -33,13 +33,13 @@ class ExportBWMData(Operator, ExportHelper):
 
     # List of operator properties, the attributes will be assigned
     # to the class instance from the operator settings before calling.
-    '''use_setting: BoolProperty(
+    use_setting: BoolProperty(
         name="Example Boolean",
         description="Example Tooltip",
         default=True,
     )
 
-    type: EnumProperty(
+    '''type: EnumProperty(
         name="Example Enum",
         description="Choose between two items",
         items=(
