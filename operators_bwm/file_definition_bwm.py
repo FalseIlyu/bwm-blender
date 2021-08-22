@@ -1,5 +1,6 @@
-from io import BufferedReader, BufferedWriter
+from io import BufferedReader
 import struct
+from typing import List
 
 def read_float(reader : BufferedReader) -> float:
     return struct.unpack('f', reader.read(4))[0]
@@ -46,11 +47,14 @@ class BWMFile:
             self.strides = [
                 Stride(reader) for i in range(self.modelHeader.strideCount)
             ]
-            self.vertices = []
-            for stride in self.strides:
-                self.vertices.append([
-                    Vertex(stride, reader) for i in range(self.modelHeader.vertexCount)
-                ])
+            data = list(range(self.modelHeader.strideCount))
+            for i in range(self.modelHeader.strideCount):
+                data[i] = [
+                    self.strides[i].read_data(reader) for v in range(self.modelHeader.vertexCount)
+                ]
+            self.vertices = [
+                Vertex([item[i] for item in data]) for i in range(self.modelHeader.vertexCount)
+            ]
             self.indexes = [
                 read_int16(reader) for i in range(self.modelHeader.indexCount)
             ]
@@ -75,10 +79,16 @@ class BWMHeader:
 
     def __init__(self, reader : BufferedReader = None):
         if reader:
-            self.fileIdentifier = str(reader.read(40)) # 0x00
+            self.fileIdentifier = (reader.read(40)).decode('utf-8') # 0x00
+            if "LiOnHeAdMODEL" not in self.fileIdentifier:
+                raise ValueError("This is not a valid .bwm file (magic string mismatch).")
             self.size = read_int32(reader) # 0x28
             self.numberIdentifier = read_int32(reader) # 0x2C
+            if self.numberIdentifier != 0x2B00B1E5:
+                raise ValueError("This is not a valid .bwm file (magic number mismatch).")
             self.version = read_int32(reader) # 0x30
+            if self.version < 5:
+                raise ValueError("Unsupported version of the format")
             self.notHeaderSize = read_int32(reader) # 0x34
             return
 
@@ -90,7 +100,7 @@ class LionheadModelHeader:
     '''
     def __init__(self, reader : BufferedReader = None):
         if reader:
-            reader.read(68)
+            self.unknown1 = tuple( read_int32(reader) for i in range(17) )
 
             self.materialDefinitionCount = read_int32(reader) # 0x7C
             self.meshDescriptionCount = read_int32(reader) # 0X80
@@ -98,11 +108,12 @@ class LionheadModelHeader:
             self.entityCount = read_int32(reader) # 0x88
             self.unknownCount1 = read_int32(reader) # 0x8C
             self.unknownCount2 = read_int32(reader) # 0x90
-            reader.read(20)
+
+            self.unknown2 = tuple( read_int32(reader) for i in range(5) )
 
             self.vertexCount = read_int32(reader) # 0xA8
             self.strideCount = read_int32(reader) # 0xAC
-            reader.read(4)
+            self.unknown3 = read_int32(reader) # 0xB0 Three for skins and two for the rest
 
             self.indexCount = read_int32(reader) # 0xB4 
             return
@@ -138,6 +149,8 @@ class MeshDescription:
             self.id = read_int32(reader)
             self.name = reader.read(64)
             reader.read(8)
+            
+            self.materialRefs : List[MaterialRef] = []
 
             return
 
@@ -232,33 +245,26 @@ class Stride:
             size = 0x88 - 4 - (8 * self.count)
             self.unknown = reader.read(size)
             return
+    
+    def read_data(self, reader : BufferedReader):
+        return reader.read(self.stride)
 
 
 class Vertex:
     '''
      '  Size    :   0x20
     '''
-    def __init__(self, stride : Stride, reader : BufferedReader = None):
-        if reader:
-            self.position = (
-                read_float(reader), 
-                read_float(reader),
-                read_float(reader)
-            )
-            self.normal = (
-                read_float(reader), 
-                read_float(reader),
-                read_float(reader)
-            )
-            self.u = read_float(reader)
-            self.v = read_float(reader)
-
-            if stride.stride > 32:
-                reader.read(stride.stride - 32)
+    def __init__(self, data : List[List[bytes]] = None):
+        if data:
+            self.position = struct.unpack('fff', data[0][:12])
+            self.normal = struct.unpack('fff', data[0][12:24])
+            self.uv = struct.unpack('ff', data[0][24:32])
+            self.unknown1 = data[1:]
             return
+
 
 if __name__ == "__main__":
 
     # test call
-    with open("G:\\Lionhead Studios\\Black & White 2\\Data\\Art\\models\\m_greek_catapultworkshop.bwm", "rb") as testBWM:
+    with open("G:\\Lionhead Studios\\Black & White 2\\Data\\Art\\models\\m_tree_cedar.bwm", "rb") as testBWM:
         BWMFile(testBWM)

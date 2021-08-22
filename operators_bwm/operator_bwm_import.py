@@ -1,10 +1,50 @@
+from typing import Set
 import bpy
+import bmesh
 from operators_bwm.file_definition_bwm import BWMFile
 
 def read_bwm_data(context, filepath, use_bwm_setting):
     print("Reading data from Black & White Model file")
     with open(filepath, 'rb') as file:
-        BWMFile(file)
+        bwm = BWMFile(file)
+        vertices = [vertex.position for vertex in bwm.vertices]
+        type = bwm.modelHeader.unknown3
+        
+        if type == 2:
+            step = 3
+        elif type == 3:
+            step = 1
+        else:
+            raise ValueError("Not a supported type")
+
+        for meshDesc in bwm.meshDescriptions:
+            mesh = bpy.data.meshes.new(str(meshDesc.id))
+            obj = bpy.data.objects.new(
+                meshDesc.name.decode('utf-8'), mesh
+            )
+            faces = []
+
+            for matRef in meshDesc.materialRefs:
+                off = matRef.indiciesOffset
+                faces.extend( [
+                    [
+                        bwm.indexes[ off + (face * step) + 0 ],
+                        bwm.indexes[ off + (face * step) + 1 ],
+                        bwm.indexes[ off + (face * step) + 2 ]
+                    ]
+                    for face in range (
+                        matRef.facesOffset, matRef.facesSize
+                    ) 
+                ] )
+                #mvert = set([vertices[item] for sublist in faces for item in sublist])
+
+            col = bpy.data.collections.get("Collection")
+            col.objects.link(obj)
+
+            mesh.from_pydata(vertices, [], faces)
+
+
+
 
     return {'FINISHED'}
 
