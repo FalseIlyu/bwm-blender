@@ -113,7 +113,7 @@ class LionheadModelHeader:
 
             self.vertexCount = read_int32(reader) # 0xA8
             self.strideCount = read_int32(reader) # 0xAC
-            self.unknown3 = read_int32(reader) # 0xB0 Three for skins and two for the rest
+            self.type = read_int32(reader) # 0xB0 Three for skins and two for the rest
 
             self.indexCount = read_int32(reader) # 0xB4 
             return
@@ -176,7 +176,10 @@ class Bone:
     '''
     def __init__(self, reader : BufferedReader = None):
         if reader:
-            self.bone = reader.read(48)
+            self.unknownv0 = (read_float(reader), read_float(reader), read_float(reader))
+            self.unknownv1 = (read_float(reader), read_float(reader), read_float(reader))
+            self.unknownv2 = (read_float(reader), read_float(reader), read_float(reader))
+            self.unknownv3 = (read_float(reader), read_float(reader), read_float(reader))
             return
 
 class Entity:
@@ -256,15 +259,19 @@ class Vertex:
     '''
     def __init__(self, data : List[List[bytes]] = None):
         if data:
-            self.position = struct.unpack('fff', data[0][:12])
-            self.normal = struct.unpack('fff', data[0][12:24])
-            self.uv = struct.unpack('ff', data[0][24:32])
-            self.unknown1 = data[1:]
+            self.position = struct.unpack('<fff', data[0][:12])
+            self.normal = struct.unpack('<fff', data[0][12:24])
+            self.uv = struct.unpack('<ff', data[0][24:32])
+            if len(data[0]) > 32:
+                self.unknown1 = data[0][32:]
+            if len(data) > 1:
+                self.otherStides = data[1:]
             return
 
 
 if __name__ == "__main__":
 
     # test call
-    with open("G:\\Lionhead Studios\\Black & White 2\\Data\\Art\\models\\m_tree_cedar.bwm", "rb") as testBWM:
-        BWMFile(testBWM)
+    with open("G:\\Lionhead Studios\\Black & White 2\\Data\\Art\\models\\m_greekinn.bwm", "rb") as testBWM:
+        file = BWMFile(testBWM)
+        pass
