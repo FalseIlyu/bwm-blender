@@ -167,7 +167,7 @@ class MaterialRef:
             self.vertexSize = read_int32(reader)
             self.facesOffset = read_int32(reader)
             self.facesSize = read_int32(reader)
-            self.unknown = read_int32(reader)
+            self.unknown = read_float(reader)
             return
 
 class Bone:
@@ -179,7 +179,7 @@ class Bone:
             self.unknownv0 = (read_float(reader), read_float(reader), read_float(reader))
             self.unknownv1 = (read_float(reader), read_float(reader), read_float(reader))
             self.unknownv2 = (read_float(reader), read_float(reader), read_float(reader))
-            self.unknownv3 = (read_float(reader), read_float(reader), read_float(reader))
+            self.position = (read_float(reader), read_float(reader), read_float(reader))
             return
 
 class Entity:
@@ -272,6 +272,6 @@ class Vertex:
 if __name__ == "__main__":
 
     # test call
-    with open("G:\\Lionhead Studios\\Black & White 2\\Data\\Art\\models\\m_greekinn.bwm", "rb") as testBWM:
+    with open("G:\\Lionhead Studios\\Black & White 2\\Data\\Art\\models\\m_greekshrine.bwm", "rb") as testBWM:
         file = BWMFile(testBWM)
         pass

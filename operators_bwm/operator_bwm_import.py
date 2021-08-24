@@ -1,8 +1,16 @@
 from os import path
+from typing import List, Tuple
 import bpy
 from operators_bwm.file_definition_bwm import BWMFile
 
-def import_materials(bwm_data : BWMFile, texturepath):
+def correct_axis (vector: Tuple[int, int, int]) -> Tuple[int, int, int]:
+    return (vector[2], vector[0], vector[1])
+
+def tuple_sum (tuple1: Tuple, tuple2 : Tuple) -> Tuple:
+    ret = [sum(x) for x in zip(tuple1, tuple2)]
+    return tuple(ret)
+
+def import_materials(bwm_data : BWMFile, texturepath: str) -> List[bpy.types.Material]:
     mats = []
 
     for material in bwm_data.materialDefinitions:
@@ -74,14 +82,13 @@ def import_materials(bwm_data : BWMFile, texturepath):
 
     return mats
 
-            
 
 def read_bwm_data(context, filepath, use_bwm_setting):
     print("Reading data from Black & White Model file")
     with open(filepath, 'rb') as file:
         bwm = BWMFile(file)
-        vertices = [(vertex.position[2], vertex.position[0], vertex.position[1]) for vertex in bwm.vertices]
-        normals = [vertex.normal for vertex in bwm.vertices]
+        vertices = [correct_axis(vertex.position) for vertex in bwm.vertices]
+        normals = [correct_axis(vertex.normal) for vertex in bwm.vertices]
         uv = [(vertex.uv[0], 1 - vertex.uv[1]) for vertex in bwm.vertices]
         type = bwm.modelHeader.type
         name = path.basename(filepath[:-4])        
@@ -105,7 +112,11 @@ def read_bwm_data(context, filepath, use_bwm_setting):
             faces = []
 
             for matRef in meshDesc.materialRefs:
-                mesh.materials.append(materials[matRef.materialDefinition])
+                cMat = materials[matRef.materialDefinition]
+                mesh.materials.append(cMat)
+                BSDF = cMat.node_tree.nodes["Principled BSDF"]
+                BSDF.inputs[18].default_value = matRef.unknown
+                
                 off = matRef.indiciesOffset
                 faces.extend( [
                     [
@@ -128,17 +139,18 @@ def read_bwm_data(context, filepath, use_bwm_setting):
                 new_uv.data[i].uv = uv[loop]
                 i += 1
 
-        mesh = bpy.data.meshes.new("Bones")
-        obj = bpy.data.objects.new("Bones", mesh)
-        vert = []
+        """vert3 = []
         for bone in bwm.bones:
-            vert.extend( [ 
-                bone.unknownv0, 
-                bone.unknownv1, 
-                bone.unknownv2,
-                bone.unknownv3 ] )
-            mesh.from_pydata(vertices, [], [0, 0, 0])
-        col.objects.link(obj)
+            mesh = bpy.data.meshes.new("Bones")
+            obj = bpy.data.objects.new("Bones", mesh)
+            vert = [
+                correct_axis(tuple_sum(bone.unknownv0, bone.position)),
+                correct_axis(tuple_sum(bone.unknownv1, bone.position)),
+                correct_axis(tuple_sum(bone.unknownv2, bone.position)),
+                correct_axis(bone.position)
+            ]
+            mesh.from_pydata(vert, [], [])
+            col.objects.link(obj)"""
 
     bpy.context.scene.collection.children.link(col)
 
@@ -149,7 +161,7 @@ def read_bwm_data(context, filepath, use_bwm_setting):
 # invoke() function which calls the file selector.
 from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty, BoolProperty, EnumProperty
-from bpy.types import Operator
+from bpy.types import Material, Operator
 
 
 class ImportBWMData(Operator, ImportHelper):
