@@ -217,7 +217,7 @@ class Unknown1:
     '''
     def __init__(self, reader : BufferedReader = None):
         if reader:
-            self.unknown = reader.read(12)
+            self.unknown = struct.unpack('<fff', reader.read(12))
             return
 
 class Unknown2:
@@ -226,7 +226,7 @@ class Unknown2:
     '''
     def __init__(self, reader : BufferedReader = None):
         if reader:
-            self.unknown = reader.read(12)
+            self.unknown = struct.unpack('<fff', reader.read(12))
             return
 
 class Stride:

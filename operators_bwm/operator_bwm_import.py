@@ -1,10 +1,10 @@
 from os import path
 from typing import List, Tuple
 import bpy
-from operators_bwm.file_definition_bwm import BWMFile
+from operators_bwm.file_definition_bwm import BWMFile, Unknown1
 
 def correct_axis (vector: Tuple[int, int, int]) -> Tuple[int, int, int]:
-    return (vector[2], vector[0], vector[1])
+    return (-vector[2], vector[0], vector[1])
 
 def tuple_sum (tuple1: Tuple, tuple2 : Tuple) -> Tuple:
     ret = [sum(x) for x in zip(tuple1, tuple2)]
@@ -139,6 +139,22 @@ def read_bwm_data(context, filepath, use_bwm_setting):
                 new_uv.data[i].uv = uv[loop]
                 i += 1
 
+        mesh = bpy.data.meshes.new("Unknown1")
+        obj = bpy.data.objects.new("Unknown1", mesh)
+        vert = [ (
+            -vec.unknown[1],
+            vec.unknown[0],
+            vec.unknown[2],
+         ) for vec in bwm.unknowns1]
+        mesh.from_pydata(vert, [], [])
+        col.objects.link(obj)
+
+        mesh = bpy.data.meshes.new("Unknown2")
+        obj = bpy.data.objects.new("Unknown2", mesh)
+        vert = [correct_axis(vec.unknown) for vec in bwm.unknowns2]
+        mesh.from_pydata(vert, [], [])
+
+        col.objects.link(obj)
         """vert3 = []
         for bone in bwm.bones:
             mesh = bpy.data.meshes.new("Bones")
