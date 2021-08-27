@@ -11,6 +11,8 @@ def read_int16(reader : BufferedReader) -> int:
 def read_int32(reader : BufferedReader) -> int:
     return int.from_bytes(reader.read(4), byteorder='little')
 
+strideFormat = [4, 12, 8, 4, 1]
+
 class BWMFile:
 
     '''
@@ -47,13 +49,15 @@ class BWMFile:
             self.strides = [
                 Stride(reader) for i in range(self.modelHeader.strideCount)
             ]
-            data = list(range(self.modelHeader.strideCount))
-            for i in range(self.modelHeader.strideCount):
-                data[i] = [
-                    self.strides[i].read_data(reader) for v in range(self.modelHeader.vertexCount)
-                ]
-            self.vertices = [
-                Vertex([item[i] for item in data]) for i in range(self.modelHeader.vertexCount)
+            self.vertices = [ 
+                Vertex(self.strides[0], reader) for vertex in range(self.modelHeader.vertexCount)
+            ]
+            self.data = [ 
+                [
+                    stride.read_data(reader) 
+                    for vertex in range(self.modelHeader.vertexCount)
+                    ] 
+                    for stride in self.strides[1:]
             ]
             self.indexes = [
                 read_int16(reader) for i in range(self.modelHeader.indexCount)
@@ -257,16 +261,29 @@ class Vertex:
     '''
      '  Size    :   0x20
     '''
-    def __init__(self, data : List[List[bytes]] = None):
-        if data:
-            self.position = struct.unpack('<fff', data[0][:12])
-            self.normal = struct.unpack('<fff', data[0][12:24])
-            self.uv = struct.unpack('<ff', data[0][24:32])
-            if len(data[0]) > 32:
-                self.unknown1 = data[0][32:]
-            if len(data) > 1:
-                self.otherStides = data[1:]
+    def __init__(self, stride: Stride, reader : BufferedReader = None):
+        if reader:
+            self.uvs = []
+            for (id, format) in stride.idSizes:
+                if id == 0:
+                    self.position = (
+                        read_float(reader),
+                        read_float(reader),
+                        read_float(reader)
+                    )
+                if id == 1:
+                    self.normal = (
+                        read_float(reader),
+                        read_float(reader),
+                        read_float(reader)
+                    )
+                if id == 2:
+                    self.uvs.append(
+                        (read_float(reader), read_float(reader))
+                    )
             return
+
+
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 from os import path
 from typing import List, Tuple
 import bpy
-from operators_bwm.file_definition_bwm import BWMFile, Unknown1
+from operators_bwm.file_definition_bwm import BWMFile
 
 def correct_axis (vector: Tuple[int, int, int]) -> Tuple[int, int, int]:
     return (-vector[2], vector[0], vector[1])
@@ -65,6 +65,7 @@ def import_materials(bwm_data : BWMFile, texturepath: str) -> List[bpy.types.Mat
                 mat_link.new(norm.inputs[1], tex.outputs[0])
         except:
             pass
+        
         """if type:
             image = bpy.ops.image.open(path.join(texturepath, type))
             node = bpy.ops.node.add_and_link_node("Image Texture")
@@ -89,7 +90,7 @@ def read_bwm_data(context, filepath, use_bwm_setting):
         bwm = BWMFile(file)
         vertices = [correct_axis(vertex.position) for vertex in bwm.vertices]
         normals = [correct_axis(vertex.normal) for vertex in bwm.vertices]
-        uv = [(vertex.uv[0], 1 - vertex.uv[1]) for vertex in bwm.vertices]
+        uv = [(vertex.uvs[0][0], 1 - vertex.uvs[0][1]) for vertex in bwm.vertices]
         type = bwm.modelHeader.type
         name = path.basename(filepath[:-4])        
 
@@ -119,14 +120,12 @@ def read_bwm_data(context, filepath, use_bwm_setting):
                 
                 off = matRef.indiciesOffset
                 faces.extend( [
-                    [
+                    (
                         bwm.indexes[ off + (face * step) + 0 ],
                         bwm.indexes[ off + (face * step) + 1 ],
                         bwm.indexes[ off + (face * step) + 2 ]
-                    ]
-                    for face in range (
-                        matRef.facesOffset, matRef.facesSize
-                    ) 
+                    )
+                    for face in range (matRef.facesSize) 
                 ] )
                 mindexes = [ item for subset in faces for item in subset ]
                 
@@ -139,7 +138,7 @@ def read_bwm_data(context, filepath, use_bwm_setting):
                 new_uv.data[i].uv = uv[loop]
                 i += 1
 
-        mesh = bpy.data.meshes.new("Unknown1")
+        """mesh = bpy.data.meshes.new("Unknown1")
         obj = bpy.data.objects.new("Unknown1", mesh)
         vert = [ (
             -vec.unknown[1],
@@ -154,7 +153,7 @@ def read_bwm_data(context, filepath, use_bwm_setting):
         vert = [correct_axis(vec.unknown) for vec in bwm.unknowns2]
         mesh.from_pydata(vert, [], [])
 
-        col.objects.link(obj)
+        col.objects.link(obj)"""
         """vert3 = []
         for bone in bwm.bones:
             mesh = bpy.data.meshes.new("Bones")
