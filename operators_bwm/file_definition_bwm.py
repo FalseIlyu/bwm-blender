@@ -13,6 +13,7 @@ def read_int32(reader : BufferedReader) -> int:
 
 strideFormat = [4, 12, 8, 4, 1]
 
+
 class BWMFile:
 
     '''
@@ -43,8 +44,8 @@ class BWMFile:
             self.unknowns1 = [
                 Unknown1(reader) for i in range(self.modelHeader.unknownCount1)
             ]
-            self.unknowns2 = [
-                Unknown2(reader) for i in range(self.modelHeader.unknownCount2)
+            self.collisionPoints = [
+                collisionPoint(reader) for i in range(self.modelHeader.collisionPointCount)
             ]
             self.strides = [
                 Stride(reader) for i in range(self.modelHeader.strideCount)
@@ -74,6 +75,7 @@ class BWMFile:
 
             return
 
+
 class BWMHeader:
     '''
      '  Header for BWM files, contains identifier for the format 
@@ -93,8 +95,10 @@ class BWMHeader:
             self.version = read_int32(reader) # 0x30
             if self.version < 5:
                 raise ValueError("Unsupported version of the format")
-            self.notHeaderSize = read_int32(reader) # 0x34
+            self.metadataSize = read_int32(reader) # 0x34
+            # 0x38 + metadataSize = vertexPointer
             return
+
 
 class LionheadModelHeader:
     '''
@@ -104,38 +108,43 @@ class LionheadModelHeader:
     '''
     def __init__(self, reader : BufferedReader = None):
         if reader:
-            self.unknown1 = tuple( read_int32(reader) for i in range(17) )
+            self.unknown1 = tuple( read_int32(reader) for i in range(3) )
+            self.unknown_int1 = read_int32(reader) # Must be != 0 for the model to show ingame
+            self.unknown2 = tuple( read_int32(reader) for i in range(10) )
+            self.unknown_int2 = read_int32(reader) # Snappin related value (maybe distance)
+            self.unknown3 = tuple( read_int32(reader) for i in range(2) )
 
             self.materialDefinitionCount = read_int32(reader) # 0x7C
             self.meshDescriptionCount = read_int32(reader) # 0X80
             self.boneCount = read_int32(reader) # 0x84
             self.entityCount = read_int32(reader) # 0x88
             self.unknownCount1 = read_int32(reader) # 0x8C
-            self.unknownCount2 = read_int32(reader) # 0x90
+            self.collisionPointCount = read_int32(reader) # 0x90
 
             self.unknown2 = tuple( read_int32(reader) for i in range(5) )
 
             self.vertexCount = read_int32(reader) # 0xA8
             self.strideCount = read_int32(reader) # 0xAC
             self.type = read_int32(reader) # 0xB0 Three for skins and two for the rest
-
             self.indexCount = read_int32(reader) # 0xB4 
             return
         
+
 class MaterialDefinition:
     '''
      '  Size    :   0x1C0
     '''
     def __init__(self, reader : BufferedReader = None):
         if reader:
-            self.diffuseMap = reader.read(64)
-            self.lightMap = reader.read(64)
-            self.unknown1 = reader.read(64)
-            self.specularMap = reader.read(64)
-            self.unknown2 = reader.read(64)
-            self.normalMap = reader.read(64)
-            self.type = reader.read(64)
+            self.diffuseMap = reader.read(64).decode('utf-8')
+            self.lightMap = reader.read(64).decode('utf-8')
+            self.unknown1 = reader.read(64).decode('utf-8')
+            self.specularMap = reader.read(64).decode('utf-8')
+            self.unknown2 = reader.read(64).decode('utf-8')
+            self.normalMap = reader.read(64).decode('utf-8')
+            self.type = reader.read(64).decode('utf-8')
             return
+
 
 class MeshDescription:
     '''
@@ -145,18 +154,26 @@ class MeshDescription:
         if reader:
             self.facesCount = read_int32(reader)
             self.indiciesOffset = read_int32(reader)
-            self.unknown = reader.read(124)
-
-            self.unknown2 = read_int32(reader)
+            self.indiciesSize = read_int32(reader)
+            self.vertexOffset = read_int32(reader)
+            self.vertexSize = read_int32(reader)
+            self.axis1 = struct.unpack('<fff', reader.read(12))
+            self.axis2 = struct.unpack('<fff', reader.read(12))
+            self.axis3 = struct.unpack('<fff', reader.read(12))
+            self.position = struct.unpack('<fff', reader.read(12))
+            self.unknown1 = reader.read(60)
+            self.unknown_int = read_int32(reader)
+            self.unknown2 = reader.read(4)
             self.materialRefsCount = read_int32(reader)
             self.u2 = read_int32(reader)
             self.id = read_int32(reader)
-            self.name = reader.read(64)
+            self.name = reader.read(64).decode('utf-8')
             reader.read(8)
             
             self.materialRefs : List[MaterialRef] = []
 
             return
+
 
 class MaterialRef:
     '''
@@ -174,17 +191,19 @@ class MaterialRef:
             self.unknown = read_float(reader)
             return
 
+
 class Bone:
     '''
      '  Size    :   0x30
     '''
     def __init__(self, reader : BufferedReader = None):
         if reader:
-            self.unknownv0 = (read_float(reader), read_float(reader), read_float(reader))
-            self.unknownv1 = (read_float(reader), read_float(reader), read_float(reader))
-            self.unknownv2 = (read_float(reader), read_float(reader), read_float(reader))
+            self.axis1 = (read_float(reader), read_float(reader), read_float(reader))
+            self.axis2 = (read_float(reader), read_float(reader), read_float(reader))
+            self.axis3 = (read_float(reader), read_float(reader), read_float(reader))
             self.position = (read_float(reader), read_float(reader), read_float(reader))
             return
+
 
 class Entity:
     '''
@@ -192,17 +211,17 @@ class Entity:
     '''
     def __init__(self, reader : BufferedReader = None):
         if reader:
-            self.unknown1 = (
+            self.axis1 = (
                 read_float(reader), 
                 read_float(reader), 
                 read_float(reader)
             )
-            self.unknown2 = (
+            self.axis2 = (
                 read_float(reader), 
                 read_float(reader), 
                 read_float(reader)
             )
-            self.unknown3 = (
+            self.axis3 = (
                 read_float(reader), 
                 read_float(reader), 
                 read_float(reader)
@@ -212,8 +231,9 @@ class Entity:
                 read_float(reader), 
                 read_float(reader)
             )
-            self.name = reader.read(256)
+            self.name = reader.read(256).decode('utf-8')
             return
+
 
 class Unknown1:
     '''
@@ -224,7 +244,8 @@ class Unknown1:
             self.unknown = struct.unpack('<fff', reader.read(12))
             return
 
-class Unknown2:
+
+class collisionPoint:
     '''
      '  Size    :   0x0C
     '''
@@ -232,6 +253,7 @@ class Unknown2:
         if reader:
             self.unknown = struct.unpack('<fff', reader.read(12))
             return
+
 
 class Stride:
     '''
@@ -284,11 +306,9 @@ class Vertex:
             return
 
 
-
-
 if __name__ == "__main__":
 
     # test call
-    with open("G:\\Lionhead Studios\\Black & White 2\\Data\\Art\\models\\m_greekshrine.bwm", "rb") as testBWM:
+    with open("G:\\Lionhead Studios\\Black & White 2\\Data\\Art\\models\\m_greekstoragepit.bwm", "rb") as testBWM:
         file = BWMFile(testBWM)
         pass
