@@ -2,14 +2,18 @@ from io import BufferedReader
 import struct
 from typing import List
 
+
 def read_float(reader : BufferedReader) -> float:
     return struct.unpack('f', reader.read(4))[0]
+
 
 def read_int16(reader : BufferedReader) -> int:
     return int.from_bytes(reader.read(2), byteorder='little')
 
+
 def read_int32(reader : BufferedReader) -> int:
     return int.from_bytes(reader.read(4), byteorder='little')
+
 
 strideFormat = [4, 12, 8, 4, 1]
 
