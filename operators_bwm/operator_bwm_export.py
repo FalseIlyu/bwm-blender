@@ -3,9 +3,10 @@ import bpy
 
 def write_bwm_data(context, filepath, use_bwm_setting):
     print("running write_bwm_data...")
-    f = open(filepath, 'w', encoding='utf-8')
-    f.write("Hello World %s" % use_some_setting)
-    f.close()
+
+    with open(filepath, 'w', encoding='utf-8') as f:
+
+        f.close()
 
     return {'FINISHED'}
 
