@@ -1,3 +1,4 @@
+from cgitb import text
 from os import path
 from typing import List, Tuple
 import bpy
@@ -17,93 +18,66 @@ def correct_uv (vector: Tuple[float, float]) -> Tuple[float, float]:
 
 
 def import_materials(bwm_data : BWMFile, texture_path: str, uvs_count : int) -> Tuple[List[bpy.types.Material], List[List[bpy.types.NodeInputs]]]:
-    materials = ([], [[] for i in range(uvs_count)])
+    materials = ([], [])
 
     for material in bwm_data.materialDefinitions:
-        diffuse_map = material.diffuseMap.replace('\0','')
-        light_map = material.lightMap.replace('\0','')
-        specular_map = material.specularMap.replace('\0','')
-        type = material.type.replace('\0','')
-        normal_map = material.normalMap.replace('\0','')
-        # unknown1 = material.unknown1.replace('\0','')
-        # unknown2 = material.unknown2.replace('\0','')
+        images = [
+            material.diffuseMap,
+            material.specularMap,
+            material.lightMap,
+            material.normalMap,
+            material.unknown1,
+            material.unknown2,
+        ]
+        type = material.type
 
         material = bpy.data.materials.new(name=type)
         material.use_nodes = True
         materials[0].append(material)
-
+        
         material_nodes = material.node_tree.nodes
         material_link = material.node_tree.links
+        uv_maps = [material_nodes.new("ShaderNodeUVMap") for i in range(uvs_count)]
+        materials[1].append(uv_maps)
 
         BSDF = material_nodes["Principled BSDF"]
-        BSDF.inputs[5].default_value = 0
-        BSDF.inputs[6].default_value = 0
-        BSDF.inputs[7].default_value = 0
-        BSDF.inputs[11].default_value = 0
-        BSDF.inputs[13].default_value = 0
-        BSDF.inputs[14].default_value = 0
-        BSDF.inputs[18].default_value = 0
-
         base_color_node = material_nodes.new("ShaderNodeMixRGB")
         base_color_node.blend_type = "MULTIPLY"
         material_link.new(BSDF.inputs[0], base_color_node.outputs[0])
 
-        try:
-            if diffuse_map != "":
-                image = bpy.data.images.load(filepath=path.join(texture_path, diffuse_map), check_existing=True)
-                texture = material_nodes.new('ShaderNodeTexImage')
-                texture.image = image
-                material_link.new(base_color_node.inputs[1], texture.outputs[0])
-                material_link.new(base_color_node.inputs[0], texture.outputs[1])
-                material_link.new(BSDF.inputs[19], texture.outputs[1])
-                materials[1][0].append(texture.inputs[0])
-        except:
-            pass
-        
-        try:
-            if specular_map != "":
-                image = bpy.data.images.load(filepath=path.join(texture_path, specular_map), check_existing=True)
-                texture = material_nodes.new('ShaderNodeTexImage')
-                texture.image = image
-                material_link.new(BSDF.inputs[5], texture.outputs[0])
-                material_link.new(BSDF.inputs[6], texture.outputs[1])
-                materials[1][0].append(texture.inputs[0])
-        except:
-            pass
+        l_inputs = [
+            [ ("base_color_node", 1), ("base_color_node", 0), ("BSDF", 19), ("texture", 0) ],
+            [ ("BSDF", 5), ("BSDF", 6), ("texture", 0)],
+            [ ("base_color_node", 2), ("base_color_node", 0), ("texture", 0)],
+            #[ (BSDF, 20), (BSDF, 0), (None, 0)],
+        ]
+        l_outputs = [
+            [ ("texture", 0), ("texture", 1), ("texture", 1), ("uv_maps[0]", 0) ],
+            [ ("texture", 0), ("texture", 1), ("uv_maps[0]", 0) ],
+            [ ("texture", 0), ("texture", 1), ("uv_maps[1]", 0) ],
+            #[ (None, 0), (None, 1), (None, 1), (uv_maps[0], 0) ],
+        ]
+        node_dict = {
+            "base_color_node": base_color_node,
+            "BSDF": BSDF,
+            "texture": None 
+        }
+        for i in range(uvs_count):
+            node_dict["uv_maps[{}]".format(i)] = uv_maps[i]
 
-        try:
-            if light_map != "":
-                image = bpy.data.images.load(filepath=path.join(texture_path, light_map), check_existing=True)
-                texture = material_nodes.new('ShaderNodeTexImage')
-                texture.image = image
-                material_link.new(base_color_node.inputs[2], texture.outputs[0])
-                material_link.new(base_color_node.inputs[0], texture.outputs[1])
-                if uvs_count > 1:
-                    materials[1][1].append(texture.inputs[0])
-                else:
-                    materials[1][0].append(texture.inputs[0])
-        except:
-            pass
-
-        try:
-            if normal_map != "":
-                image = bpy.data.images.load(filepath=path.join(normal_map, light_map), check_existing=True)
-                normal = material_nodes.new('ShaderNodeNormalMap')
-                texture = material_nodes.new('ShaderNodeTexImage')
-                texture.image = image
-                material_link.new(BSDF.inputs[20], normal.outputs[0])
-                material_link.new(normal.inputs[1], texture.outputs[0])
-        except:
-            pass
-
-        """if unknown2:
-            image = bpy.ops.image.open(path.join(texturepath, unknown2))
-            node = bpy.ops.node.add_and_link_node("Image Texture")
-            node.image = image
-        if unknown1:
-            image = bpy.ops.image.open(path.join(texturepath, unknown1))
-            node = bpy.ops.node.add_and_link_node("Image Texture")
-            node.image = image"""
+        for (file, inputs, outputs) in zip(images, l_inputs, l_outputs):
+            try:
+                if file != "":
+                    image = bpy.data.images.load(filepath=path.join(texture_path, file), check_existing=True)
+                    texture = material_nodes.new('ShaderNodeTexImage')
+                    texture.image = image
+                    node_dict["texture"] = texture
+                    for (input, output) in zip(inputs, outputs):
+                        n_input = node_dict[input[0]]
+                        n_output = node_dict[output[0]]
+                        material_link.new(n_input.inputs[input[1]], n_output.outputs[output[1]])
+            except:
+                pass
 
     return materials
 
@@ -112,18 +86,24 @@ def read_bwm_data(context, filepath, use_bwm_setting):
     print("Reading data from Black & White Model file")
     with open(filepath, 'rb') as file:
         bwm = BWMFile(file)
+        uvs_count = len(bwm.vertices[0].uvs)
         vertices = [correct_axis(vertex.position) for vertex in bwm.vertices]
         # normals = [correct_axis(vertex.normal) for vertex in bwm.vertices]
-        mesh_uvs = [ [
-            (vertex.uvs[i][0], vertex.uvs[i][1]) 
-            for i in range(len(vertex.uvs)) ]
-            for vertex in bwm.vertices ]
-        uvs_count = len(mesh_uvs[0])
+        mesh_uvs = [ 
+            [vertex.uvs[i] for vertex in bwm.vertices]
+            for i in range(uvs_count) 
+            ]
+        
+        uvs_names = [
+            "_uv_texture",
+            "_uv_ligthmap", 
+            "_uv_unknown"
+            ]
 
         type = bwm.modelHeader.type
-        name = path.basename(filepath[:-4])        
+        bwm_name = path.basename(filepath[:-4])        
 
-        col = bpy.data.collections.new(name)
+        col = bpy.data.collections.new(bwm_name)
 
         if type == 2:
             step = 3
@@ -132,59 +112,54 @@ def read_bwm_data(context, filepath, use_bwm_setting):
         else:
             raise ValueError("Not a supported type")
 
-        materials = import_materials(bwm, path.join(path.dirname(filepath), "..\\textures"), len(mesh_uvs[0]))
+        materials = import_materials(bwm, path.join(path.dirname(filepath), "..\\textures"), uvs_count)
 
         for mesh_description in bwm.meshDescriptions:
             mesh = bpy.data.meshes.new(str(mesh_description.id))
+            mesh_name = mesh_description.name.replace('\0', '')
             obj = bpy.data.objects.new(
-                mesh_description.name, mesh
+                mesh_name, mesh
             )
 
+            # Set up mesh geometry
             indicies_offset = mesh_description.indiciesOffset
+            indicies_size = mesh_description.indiciesSize
             vertex_offset = mesh_description.vertexOffset
-            dict_vertices = {
-                i : i - vertex_offset 
-                for i in range(vertex_offset,
-                mesh_description.vertexSize + vertex_offset)
-            }
-            mesh_indexes = bwm.indexes[indicies_offset:mesh_description.indiciesSize+indicies_offset]
-            mesh_vertices = vertices[vertex_offset:mesh_description.vertexSize+vertex_offset]
-            mesh_faces = [ (
-                dict_vertices[mesh_indexes[(i * step) + 0]],
-                dict_vertices[mesh_indexes[(i * step) + 1]],
-                dict_vertices[mesh_indexes[(i * step) + 2]]
-                ) for i in range(mesh_description.facesCount) ]
+            vertex_offset = min(vertex_offset, bwm.indexes[indicies_offset])
+            vertex_size = mesh_description.vertexSize
+            mesh_indexes = bwm.indexes[indicies_offset:indicies_size + indicies_offset]
+            mesh_vertices = vertices[vertex_offset:vertex_size + vertex_offset]
+            mesh_faces = [
+                [index - vertex_offset for index in mesh_indexes[(i*step):(i*step)+3]]
+                for i in range(mesh_description.facesCount)
+                ]
             
 
             mesh.from_pydata(mesh_vertices, [], mesh_faces)
 
+            # Set up uv maps
             uv_layers = []
-            texture_uv_layer = mesh.uv_layers.new(name=mesh.name + "_texture")
-            uv_layers.append(texture_uv_layer)
-            if uvs_count > 1:
-                lightmap_uv_layer = mesh.uv_layers.new(name=mesh.name + "_lightmap")
-                uv_layers.append(lightmap_uv_layer)
-            for i in range(len(mesh_indexes)):
-                texture_uv_layer.data[i].uv = correct_uv(mesh_uvs[mesh_indexes[i]][0])
-                if uvs_count > 1:
-                    lightmap_uv_layer.data[i].uv = correct_uv(mesh_uvs[mesh_indexes[i]][1])
+            for i in range(uvs_count):
+                uv_layer = mesh.uv_layers.new(name=bwm_name + uvs_names[i])
+                for j in range(len(mesh_indexes)):
+                    uv_layer.data[j].uv = correct_uv(mesh_uvs[i][mesh_indexes[j]])
+                uv_layers.append(uv_layer)
 
+            # Set up materials
             for material_reference in mesh_description.materialRefs:
                 current_material = materials[0][material_reference.materialDefinition]
                 obj.data.materials.append(current_material)
-                material_nodes = current_material.node_tree.nodes
-                material_links = current_material.node_tree.links
-
+                
+                # Apply the uv maps (should be done elsewhere)
                 for i in range(len(uv_layers)):
-                    uv_node = material_nodes.new("ShaderNodeUVMap")
+                    uv_node = materials[1][material_reference.materialDefinition][i]
                     uv_node.uv_map = uv_layers[i].name
-                    for j in materials[1][i]:
-                        material_links.new(j, uv_node.outputs[0])
-
                 face_number = min(
                     material_reference.facesSize,
                     mesh_description.facesCount - material_reference.facesOffset
                 )
+
+                #Apply the materials
                 for face in range(face_number):
                     mesh.polygons[material_reference.facesOffset + face].material_index = len(obj.data.materials) - 1
 
