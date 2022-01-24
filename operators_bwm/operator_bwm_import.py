@@ -1,4 +1,4 @@
-from cgitb import text
+from asyncore import loop
 from os import path
 from typing import List, Tuple
 import bpy
@@ -26,8 +26,8 @@ def import_materials(bwm_data : BWMFile, texture_path: str, uvs_count : int) -> 
             material.specularMap,
             material.lightMap,
             material.normalMap,
-            material.unknown1,
-            material.unknown2,
+            material.growthMap,
+            material.animatedTexture,
         ]
         type = material.type
 
@@ -114,6 +114,7 @@ def read_bwm_data(context, filepath, use_bwm_setting):
 
         materials = import_materials(bwm, path.join(path.dirname(filepath), "..\\textures"), uvs_count)
 
+        n_mesh = 0
         for mesh_description in bwm.meshDescriptions:
             mesh = bpy.data.meshes.new(str(mesh_description.id))
             mesh_name = mesh_description.name.replace('\0', '')
@@ -123,26 +124,40 @@ def read_bwm_data(context, filepath, use_bwm_setting):
 
             # Set up mesh geometry
             indicies_offset = mesh_description.indiciesOffset
+            if type > 2 and n_mesh > 0:
+                indicies_offset += 2
             indicies_size = mesh_description.indiciesSize
             vertex_offset = mesh_description.vertexOffset
-            vertex_offset = min(vertex_offset, bwm.indexes[indicies_offset])
             vertex_size = mesh_description.vertexSize
             mesh_indexes = bwm.indexes[indicies_offset:indicies_size + indicies_offset]
             mesh_vertices = vertices[vertex_offset:vertex_size + vertex_offset]
-            mesh_faces = [
-                [index - vertex_offset for index in mesh_indexes[(i*step):(i*step)+3]]
-                for i in range(mesh_description.facesCount)
-                ]
-            
+            mesh_faces = []
+            if type == 2:
+                mesh_faces = [
+                    [index - vertex_offset for index in mesh_indexes[(i*3):(i*3)+3]]
+                    for i in range(mesh_description.facesCount)
+                    ]
+            if type == 3:
+                mesh_faces = [
+                    [index - vertex_offset for index in mesh_indexes[i:i+3]] if (i%2 == 0)
+                    else [
+                        mesh_indexes[i+1] - vertex_offset,
+                        mesh_indexes[i] - vertex_offset,
+                        mesh_indexes[i+2] - vertex_offset
+                        ]
+                    for i in range(mesh_description.facesCount)
+                    ]
 
             mesh.from_pydata(mesh_vertices, [], mesh_faces)
+            n_mesh += 1
 
             # Set up uv maps
             uv_layers = []
             for i in range(uvs_count):
-                uv_layer = mesh.uv_layers.new(name=bwm_name + uvs_names[i])
-                for j in range(len(mesh_indexes)):
-                    uv_layer.data[j].uv = correct_uv(mesh_uvs[i][mesh_indexes[j]])
+                uv_layer = mesh.uv_layers.new(name=mesh_name + uvs_names[i])
+                for faces in obj.data.polygons:
+                    for vert_index, loop_index in zip(faces.vertices, faces.loop_indices):
+                        uv_layer.data[loop_index].uv = correct_uv(mesh_uvs[i][vert_index])
                 uv_layers.append(uv_layer)
 
             # Set up materials
@@ -162,6 +177,8 @@ def read_bwm_data(context, filepath, use_bwm_setting):
                 #Apply the materials
                 for face in range(face_number):
                     mesh.polygons[material_reference.facesOffset + face].material_index = len(obj.data.materials) - 1
+
+            #mesh.validate()
 
             col.objects.link(obj)
 
