@@ -1,11 +1,10 @@
-from asyncore import loop
 from os import path
 from typing import List, Tuple
 import bpy
 from operators_bwm.file_definition_bwm import BWMFile
 
 def correct_axis (vector: Tuple[int, int, int]) -> Tuple[int, int, int]:
-    return (-vector[2], vector[0], vector[1])
+    return (vector[2], vector[0], vector[1])
 
 
 def tuple_sum (tuple1: Tuple, tuple2 : Tuple) -> Tuple:
@@ -151,10 +150,15 @@ def read_bwm_data(context, filepath, use_bwm_setting):
             mesh.from_pydata(mesh_vertices, [], mesh_faces)
             n_mesh += 1
 
+            # Set up normals
+            for index in range(vertex_offset, vertex_offset + vertex_size):
+                mesh.vertices[index-vertex_offset].normal = correct_axis(bwm.vertices[index].normal)
+            mesh.create_normals_split()
+
             # Set up uv maps
             uv_layers = []
             for i in range(uvs_count):
-                uv_layer = mesh.uv_layers.new(name=mesh_name + uvs_names[i])
+                uv_layer = mesh.uv_layers.new(name=bwm_name + uvs_names[i])
                 for faces in obj.data.polygons:
                     for vert_index, loop_index in zip(faces.vertices, faces.loop_indices):
                         uv_layer.data[loop_index].uv = correct_uv(mesh_uvs[i][vert_index])
