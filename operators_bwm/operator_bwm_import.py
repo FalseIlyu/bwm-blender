@@ -161,7 +161,7 @@ def read_bwm_data(context, filepath, use_bwm_setting):
                 uv_layer = mesh.uv_layers.new(name=bwm_name + uvs_names[i])
                 for faces in obj.data.polygons:
                     for vert_index, loop_index in zip(faces.vertices, faces.loop_indices):
-                        uv_layer.data[loop_index].uv = correct_uv(mesh_uvs[i][vert_index])
+                        uv_layer.data[loop_index].uv = correct_uv(mesh_uvs[i][vert_index+vertex_offset])
                 uv_layers.append(uv_layer)
 
             # Set up materials
