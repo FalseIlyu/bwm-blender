@@ -19,6 +19,7 @@ def correct_uv (vector: Tuple[float, float]) -> Tuple[float, float]:
 def import_materials(bwm_data : BWMFile, texture_path: str, uvs_count : int) -> Tuple[List[bpy.types.Material], List[List[bpy.types.NodeInputs]]]:
     materials = ([], [])
 
+    m_index = 0
     for material in bwm_data.materialDefinitions:
         images = [
             material.diffuseMap,
@@ -30,9 +31,12 @@ def import_materials(bwm_data : BWMFile, texture_path: str, uvs_count : int) -> 
         ]
         type = material.type
 
-        material = bpy.data.materials.new(name=type)
+        material = bpy.data.materials.new(name=str(m_index) +" " + type)
         material.use_nodes = True
+        material.blend_method = 'HASHED'
+        material.alpha_threshold = 1.0
         materials[0].append(material)
+        m_index += 1
         
         material_nodes = material.node_tree.nodes
         material_link = material.node_tree.links
@@ -114,9 +118,14 @@ def read_bwm_data(context, filepath, use_bwm_setting):
         materials = import_materials(bwm, path.join(path.dirname(filepath), "..\\textures"), uvs_count)
 
         n_mesh = 0
+        mesh_col = bpy.data.collections.new(bwm_name + "_mesh")
+        col.children.link(mesh_col)
+        lods = [bpy.data.collections.new("lod" + str(i + 1)) for i in range(4)]
+        for n_col in lods:
+            mesh_col.children.link(n_col)
         for mesh_description in bwm.meshDescriptions:
-            mesh = bpy.data.meshes.new(str(mesh_description.id))
             mesh_name = mesh_description.name.replace('\0', '')
+            mesh = bpy.data.meshes.new(mesh_name)
             obj = bpy.data.objects.new(
                 mesh_name, mesh
             )
@@ -184,7 +193,70 @@ def read_bwm_data(context, filepath, use_bwm_setting):
 
             #mesh.validate()
 
-            col.objects.link(obj)
+            lods[mesh_description.lod_level - 1].objects.link(obj)
+    
+    '''header = [
+        correct_axis(bwm.modelHeader.box1),
+        correct_axis(bwm.modelHeader.box2),
+        correct_axis(bwm.modelHeader.cent),
+        correct_axis(bwm.modelHeader.pnt),
+        correct_axis(bwm.modelHeader.unknowns2)
+        ]
+    if header:
+        mesh = bpy.data.meshes.new("Header")
+        obj = bpy.data.objects.new(
+                mesh.name, mesh
+            )
+        mesh.from_pydata(header, [], [])
+        n_col = bpy.data.collections.new(bwm_name + "_header")
+        n_col.objects.link(obj)
+        col.children.link(n_col)'''
+
+    entities = [correct_axis(entity.position) for entity in bwm.entities]
+    if entities:
+        mesh = bpy.data.meshes.new("Entities")
+        obj = bpy.data.objects.new(
+                mesh.name, mesh
+            )
+        mesh.from_pydata(entities, [], [])
+        n_col = bpy.data.collections.new(bwm_name + "_entities")
+        n_col.objects.link(obj)
+        col.children.link(n_col)
+
+    unknowns = [correct_axis(unknown.unknown) for unknown in bwm.unknowns1]
+    if unknowns:
+        mesh = bpy.data.meshes.new("Unknowns")
+        obj = bpy.data.objects.new(
+                mesh.name, mesh
+            )
+        mesh.from_pydata(unknowns, [], [])
+        n_col = bpy.data.collections.new(bwm_name + "_unknowns")
+        n_col.objects.link(obj)
+        col.children.link(n_col)
+
+    collision = [correct_axis(collisionPoint.position) for collisionPoint in bwm.collisionPoints]
+    if collision:
+        mesh = bpy.data.meshes.new("Collision")
+        obj = bpy.data.objects.new(
+                mesh.name, mesh
+            )
+        mesh.from_pydata(collision, [], [])
+        n_col = bpy.data.collections.new(bwm_name + "_collision")
+        n_col.objects.link(obj)
+        col.children.link(n_col)
+
+    bones = [correct_axis(bone.position) for bone in bwm.bones]
+    if bones:
+        mesh = bpy.data.meshes.new("Bones")
+        obj = bpy.data.objects.new(
+                mesh.name, mesh
+            )
+        mesh.from_pydata(bones, [], [])
+        n_col = bpy.data.collections.new(bwm_name + "_bones")
+        n_col.objects.link(obj)
+        col.children.link(n_col)
+
+
 
     bpy.context.scene.collection.children.link(col)
 
