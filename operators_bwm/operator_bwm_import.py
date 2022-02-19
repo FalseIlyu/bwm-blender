@@ -33,6 +33,8 @@ def import_materials(bwm_data : BWMFile, texture_path: str, uvs_count : int) -> 
 
         material = bpy.data.materials.new(name=str(m_index) +" " + type)
         material.use_nodes = True
+        if type == '_plants_' or type == '_yard_' or type == '_vines_':
+            material.blend_method = 'BLEND'
         material.blend_method = 'HASHED'
         material.alpha_threshold = 1.0
         materials[0].append(material)
@@ -52,13 +54,13 @@ def import_materials(bwm_data : BWMFile, texture_path: str, uvs_count : int) -> 
             [ ("base_color_node", 1), ("base_color_node", 0), ("BSDF", 19), ("texture", 0) ],
             [ ("BSDF", 5), ("BSDF", 6), ("texture", 0)],
             [ ("base_color_node", 2), ("base_color_node", 0), ("texture", 0)],
-            #[ (BSDF, 20), (BSDF, 0), (None, 0)],
+            [ ("BSDF", 20), ("texture", 0)],
         ]
         l_outputs = [
             [ ("texture", 0), ("texture", 1), ("texture", 1), ("uv_maps[0]", 0) ],
             [ ("texture", 0), ("texture", 1), ("uv_maps[0]", 0) ],
             [ ("texture", 0), ("texture", 1), ("uv_maps[1]", 0) ],
-            #[ (None, 0), (None, 1), (None, 1), (uv_maps[0], 0) ],
+            [ ("texture", 0), ("uv_maps[0]", 0) ],
         ]
         node_dict = {
             "base_color_node": base_color_node,
