@@ -35,7 +35,8 @@ def import_materials(bwm_data : BWMFile, texture_path: str, uvs_count : int) -> 
         material.use_nodes = True
         if type == '_plants_' or type == '_yard_' or type == '_vines_':
             material.blend_method = 'BLEND'
-        material.blend_method = 'HASHED'
+        else:
+            material.blend_method = 'HASHED'
         material.alpha_threshold = 1.0
         materials[0].append(material)
         m_index += 1
