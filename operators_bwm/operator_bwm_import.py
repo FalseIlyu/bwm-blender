@@ -1,6 +1,7 @@
 from os import path
 from typing import List, Tuple
 import bpy
+
 from operators_bwm.file_definition_bwm import BWMFile
 
 def correct_axis (vector: Tuple[int, int, int]) -> Tuple[int, int, int]:
@@ -53,15 +54,19 @@ def import_materials(bwm_data : BWMFile, texture_path: str, uvs_count : int) -> 
 
         l_inputs = [
             [ ("base_color_node", 1), ("base_color_node", 0), ("BSDF", 19), ("texture", 0) ],
-            [ ("BSDF", 5), ("BSDF", 6), ("texture", 0)],
-            [ ("base_color_node", 2), ("base_color_node", 0), ("texture", 0)],
-            [ ("BSDF", 20), ("texture", 0)],
+            [ ("BSDF", 5), ("BSDF", 6), ("texture", 0) ],
+            [ ("base_color_node", 2), ("base_color_node", 0), ("texture", 0) ],
+            [ ("BSDF", 20), ("texture", 0) ],
+            [ ("texture", 0) ],
+            [ ("texture", 0) ]
         ]
         l_outputs = [
             [ ("texture", 0), ("texture", 1), ("texture", 1), ("uv_maps[0]", 0) ],
             [ ("texture", 0), ("texture", 1), ("uv_maps[0]", 0) ],
             [ ("texture", 0), ("texture", 1), ("uv_maps[1]", 0) ],
             [ ("texture", 0), ("uv_maps[0]", 0) ],
+            [ ("uv_maps[0]", 0) ],
+            [ ("uv_maps[0]", 0) ]
         ]
         node_dict = {
             "base_color_node": base_color_node,
