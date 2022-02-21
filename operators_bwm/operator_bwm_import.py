@@ -6,14 +6,14 @@ import bpy
 from operators_bwm.file_definition_bwm import BWMFile
 
 
-def correct_axis (vector: Tuple[int, int, int]) -> Tuple[int, int, int]:
-    axis_correction = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
+def correct_axis (vector: Tuple[float, float, float]) -> Tuple[float, float, float]:
+    axis_correction = np.array([[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
     position = np.array(vector)
     position = axis_correction.dot(position)
     return tuple(position)
 
-def correct_rotation (rotation: List[List[int]]) -> np.ndarray[int]:
-    axis_correction = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
+def correct_rotation (rotation: List[List[float]]) -> np.ndarray:
+    axis_correction = np.array([[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
     rotation = np.array(rotation)
     return axis_correction.dot(rotation)
 
@@ -23,7 +23,7 @@ def tuple_sum (tuple1: Tuple, tuple2 : Tuple) -> Tuple:
 
 
 def correct_uv (vector: Tuple[float, float]) -> Tuple[float, float]:
-    return (vector[0], 1 - vector[1])
+    return (vector[0], 1.0 - vector[1])
 
 
 def import_materials(bwm_data : BWMFile, texture_path: str, uvs_count : int) -> Tuple[List[bpy.types.Material], List[List[bpy.types.NodeInputs]]]:
