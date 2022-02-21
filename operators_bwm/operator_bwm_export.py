@@ -1,5 +1,16 @@
 import bpy
 
+from operators_bwm.file_definition_bwm import BWMFile
+
+def correct_axis (vector: Tuple[int, int, int]) -> Tuple[int, int, int]:
+    rotation = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
+    position = np.array(vector)
+    position = rotation.dot(position)
+    return tuple(position)
+
+def organize_bwm_data():
+    file = BWMFile()
+    return file
 
 def write_bwm_data(context, filepath, use_bwm_setting):
     print("running write_bwm_data...")

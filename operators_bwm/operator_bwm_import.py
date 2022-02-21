@@ -1,11 +1,15 @@
 from os import path
 from typing import List, Tuple
+import numpy as np
 import bpy
 
 from operators_bwm.file_definition_bwm import BWMFile
 
 def correct_axis (vector: Tuple[int, int, int]) -> Tuple[int, int, int]:
-    return (vector[2], vector[0], vector[1])
+    rotation = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
+    position = np.array(vector)
+    position = rotation.dot(position)
+    return tuple(position)
 
 
 def tuple_sum (tuple1: Tuple, tuple2 : Tuple) -> Tuple:
@@ -126,7 +130,7 @@ def read_bwm_data(context, filepath, use_bwm_setting):
         materials = import_materials(bwm, path.join(path.dirname(filepath), "..\\textures"), uvs_count)
 
         n_mesh = 0
-        mesh_col = bpy.data.collections.new(bwm_name + "_mesh")
+        mesh_col = bpy.data.collections.new("mesh")
         col.children.link(mesh_col)
         lods = [bpy.data.collections.new("lod" + str(i + 1)) for i in range(4)]
         for n_col in lods:
@@ -201,6 +205,16 @@ def read_bwm_data(context, filepath, use_bwm_setting):
 
             #mesh.validate()
 
+            #line = [
+            #    correct_axis(mesh_description.axis1), 
+            #    correct_axis(mesh_description.axis2), 
+            #    correct_axis(mesh_description.axis3), 
+            #    correct_axis(mesh_description.position)
+            #]
+            #t_matrix = [[(line[i][j]) if j < 3 else 0.0 for i in range(4)] for j in range(4)]
+            #t_matrix[3][3] = 1.0
+            #mesh.transform(t_matrix)
+
             lods[mesh_description.lod_level - 1].objects.link(obj)
     
     '''header = [
@@ -220,15 +234,27 @@ def read_bwm_data(context, filepath, use_bwm_setting):
         n_col.objects.link(obj)
         col.children.link(n_col)'''
 
-    entities = [correct_axis(entity.position) for entity in bwm.entities]
-    if entities:
-        mesh = bpy.data.meshes.new("Entities")
-        obj = bpy.data.objects.new(
-                mesh.name, mesh
-            )
-        mesh.from_pydata(entities, [], [])
-        n_col = bpy.data.collections.new(bwm_name + "_entities")
-        n_col.objects.link(obj)
+    if bwm.entities:
+        n_col = bpy.data.collections.new("entities")
+        draw_size = bwm.modelHeader.height / 10
+        for entity in bwm.entities:
+            empty = bpy.data.objects.new(entity.name, None)
+            
+            x = (entity.axis3)
+            x = [x[i] if i < 3 else 0.0 for i in range(4)]
+            y = (entity.axis1)
+            y = [y[i] if i < 3 else 0.0 for i in range(4)]
+            z = (entity.axis2)
+            z = [z[i] if i < 3 else 0.0 for i in range(4)]
+            pose = correct_axis(entity.position)
+            pose = [pose[i] if i < 3 else 1.0 for i in range(4)]
+            empty.matrix_world = [x, y, z, pose]
+
+            empty. empty_display_size = draw_size
+            empty.empty_display_type = "ARROWS"
+
+            n_col.objects.link(empty)
+
         col.children.link(n_col)
 
     unknowns = [correct_axis(unknown.unknown) for unknown in bwm.unknowns1]
@@ -238,7 +264,7 @@ def read_bwm_data(context, filepath, use_bwm_setting):
                 mesh.name, mesh
             )
         mesh.from_pydata(unknowns, [], [])
-        n_col = bpy.data.collections.new(bwm_name + "_unknowns")
+        n_col = bpy.data.collections.new("unknowns")
         n_col.objects.link(obj)
         col.children.link(n_col)
 
@@ -249,19 +275,33 @@ def read_bwm_data(context, filepath, use_bwm_setting):
                 mesh.name, mesh
             )
         mesh.from_pydata(collision, [], [])
-        n_col = bpy.data.collections.new(bwm_name + "_collision")
+        n_col = bpy.data.collections.new("collision")
         n_col.objects.link(obj)
         col.children.link(n_col)
 
-    bones = [correct_axis(bone.position) for bone in bwm.bones]
-    if bones:
-        mesh = bpy.data.meshes.new("Bones")
-        obj = bpy.data.objects.new(
-                mesh.name, mesh
-            )
-        mesh.from_pydata(bones, [], [])
-        n_col = bpy.data.collections.new(bwm_name + "_bones")
-        n_col.objects.link(obj)
+    if bwm.bones:
+        n_col = bpy.data.collections.new("bones")
+        bone_number = 0
+        draw_size = bwm.modelHeader.height / 10
+        for bone in bwm.bones:
+            empty = bpy.data.objects.new(str(bone_number), None)
+            
+            x = correct_axis(bone.axis3)
+            x = [x[i] if i < 3 else 0.0 for i in range(4)]
+            y = correct_axis(bone.axis1)
+            y = [y[i] if i < 3 else 0.0 for i in range(4)]
+            z = correct_axis(bone.axis2)
+            z = [z[i] if i < 3 else 0.0 for i in range(4)]
+            pose = correct_axis(bone.position)
+            pose = [pose[i] if i < 3 else 1.0 for i in range(4)]
+            empty.matrix_world = [x, y, z, pose]
+
+            empty.empty_display_size = draw_size
+            empty.empty_display_type = "ARROWS"
+
+            n_col.objects.link(empty)
+            bone_number += 1
+
         col.children.link(n_col)
 
 
