@@ -5,12 +5,17 @@ import bpy
 
 from operators_bwm.file_definition_bwm import BWMFile
 
+
 def correct_axis (vector: Tuple[int, int, int]) -> Tuple[int, int, int]:
-    rotation = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
+    axis_correction = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
     position = np.array(vector)
-    position = rotation.dot(position)
+    position = axis_correction.dot(position)
     return tuple(position)
 
+def correct_rotation (rotation: List[List[int]]) -> np.ndarray[int]:
+    axis_correction = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
+    rotation = np.array(rotation)
+    return axis_correction.dot(rotation)
 
 def tuple_sum (tuple1: Tuple, tuple2 : Tuple) -> Tuple:
     ret = [sum(x) for x in zip(tuple1, tuple2)]
@@ -142,6 +147,20 @@ def read_bwm_data(context, filepath, use_bwm_setting):
                 mesh_name, mesh
             )
 
+            rotation = correct_rotation (
+                    [
+                    mesh_description.axis1,
+                    mesh_description.axis2,
+                    mesh_description.axis3
+                    ]
+                )
+            x = [rotation[i][0] if i < 3 else 0.0 for i in range(4)]
+            y = [rotation[i][1] if i < 3 else 0.0 for i in range(4)]
+            z = [rotation[i][2] if i < 3 else 0.0 for i in range(4)]
+            pose = correct_axis(mesh_description.position)
+            pose = [pose[i] if i < 3 else 1.0 for i in range(4)]
+            mesh.transform(np.transpose([x, y, z, pose]))
+
             # Set up mesh geometry
             indicies_offset = mesh_description.indiciesOffset
             if type > 2 and n_mesh > 0:
@@ -205,16 +224,6 @@ def read_bwm_data(context, filepath, use_bwm_setting):
 
             #mesh.validate()
 
-            #line = [
-            #    correct_axis(mesh_description.axis1), 
-            #    correct_axis(mesh_description.axis2), 
-            #    correct_axis(mesh_description.axis3), 
-            #    correct_axis(mesh_description.position)
-            #]
-            #t_matrix = [[(line[i][j]) if j < 3 else 0.0 for i in range(4)] for j in range(4)]
-            #t_matrix[3][3] = 1.0
-            #mesh.transform(t_matrix)
-
             lods[mesh_description.lod_level - 1].objects.link(obj)
     
     '''header = [
@@ -236,16 +245,19 @@ def read_bwm_data(context, filepath, use_bwm_setting):
 
     if bwm.entities:
         n_col = bpy.data.collections.new("entities")
-        draw_size = bwm.modelHeader.height / 10
+        draw_size = bwm.modelHeader.height / 20
         for entity in bwm.entities:
             empty = bpy.data.objects.new(entity.name, None)
-            
-            x = (entity.axis3)
-            x = [x[i] if i < 3 else 0.0 for i in range(4)]
-            y = (entity.axis1)
-            y = [y[i] if i < 3 else 0.0 for i in range(4)]
-            z = (entity.axis2)
-            z = [z[i] if i < 3 else 0.0 for i in range(4)]
+            rotation = correct_rotation (
+                    [
+                    entity.axis1,
+                    entity.axis2,
+                    entity.axis3
+                    ]
+                )
+            x = [rotation[i][0] if i < 3 else 0.0 for i in range(4)]
+            y = [rotation[i][1] if i < 3 else 0.0 for i in range(4)]
+            z = [rotation[i][2] if i < 3 else 0.0 for i in range(4)]
             pose = correct_axis(entity.position)
             pose = [pose[i] if i < 3 else 1.0 for i in range(4)]
             empty.matrix_world = [x, y, z, pose]
@@ -282,16 +294,19 @@ def read_bwm_data(context, filepath, use_bwm_setting):
     if bwm.bones:
         n_col = bpy.data.collections.new("bones")
         bone_number = 0
-        draw_size = bwm.modelHeader.height / 10
+        draw_size = bwm.modelHeader.height / 20
         for bone in bwm.bones:
             empty = bpy.data.objects.new(str(bone_number), None)
-            
-            x = correct_axis(bone.axis3)
-            x = [x[i] if i < 3 else 0.0 for i in range(4)]
-            y = correct_axis(bone.axis1)
-            y = [y[i] if i < 3 else 0.0 for i in range(4)]
-            z = correct_axis(bone.axis2)
-            z = [z[i] if i < 3 else 0.0 for i in range(4)]
+            rotation = correct_rotation (
+                    [
+                    bone.axis1,
+                    bone.axis2,
+                    bone.axis3
+                    ]
+                )
+            x = [rotation[i][0] if i < 3 else 0.0 for i in range(4)]
+            y = [rotation[i][1] if i < 3 else 0.0 for i in range(4)]
+            z = [rotation[i][2] if i < 3 else 0.0 for i in range(4)]
             pose = correct_axis(bone.position)
             pose = [pose[i] if i < 3 else 1.0 for i in range(4)]
             empty.matrix_world = [x, y, z, pose]

@@ -1,14 +1,21 @@
+from typing import List, Tuple
 import bpy
+import numpy as np
 
 from operators_bwm.file_definition_bwm import BWMFile
 
 def correct_axis (vector: Tuple[int, int, int]) -> Tuple[int, int, int]:
-    rotation = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
+    axis_correction = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
     position = np.array(vector)
-    position = rotation.dot(position)
+    position = axis_correction.dot(position)
     return tuple(position)
 
-def organize_bwm_data():
+def correct_rotation (rotation: List[List[int]]) -> List[List[int]]:
+    axis_correction = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
+    rotation = np.array(rotation)
+    return axis_correction.dot(rotation)
+
+def organize_bwm_data() -> BWMFile:
     file = BWMFile()
     return file
 
