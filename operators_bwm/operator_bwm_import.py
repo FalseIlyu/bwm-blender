@@ -1,21 +1,33 @@
 # <pep8-80 compliant>
+from distutils.command.build import build
 import logging
 from bpy.types import Operator
 from bpy.props import StringProperty
 from bpy_extras.io_utils import ImportHelper
 from os import path
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import numpy as np
 import bpy
 
-from operators_bwm.file_definition_bwm import BWMFile, MaterialDefinition
+from operators_bwm.file_definition_bwm import (
+    Bone,
+    Entity,
+    BWMFile,
+    MeshDescription,
+    MaterialDefinition,
+)
 
 
 def correct_axis(
         vector: Tuple[float, float, float]
 ) -> Tuple[float, float, float]:
     axis_correction = np.array(
-        [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        [
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0]
+        ]
+    )
     position = np.array(vector)
     position = axis_correction.dot(position)
     return tuple(position)
@@ -23,7 +35,12 @@ def correct_axis(
 
 def correct_rotation(rotation: List[List[float]]) -> np.ndarray:
     axis_correction = np.array(
-        [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        [
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0]
+        ]
+    )
     rotation = np.array(rotation)
     return axis_correction.dot(rotation)
 
@@ -122,21 +139,85 @@ def import_material(
     return (material, uv_maps)
 
 
-def read_bwm_data(context, filepath):
+def build_transformation_matrix(
+    bwm_entity: Union[Bone, Entity, MeshDescription]
+):
+    rotation = correct_rotation(
+        [
+            bwm_entity.axis1,
+            bwm_entity.axis2,
+            bwm_entity.axis3
+        ]
+    )
+    x = [rotation[i][0] if i < 3 else 0.0 for i in range(4)]
+    y = [rotation[i][1] if i < 3 else 0.0 for i in range(4)]
+    z = [rotation[i][2] if i < 3 else 0.0 for i in range(4)]
+    point = correct_axis(bwm_entity.position)
+    point = [point[i] if i < 3 else 1.0 for i in range(4)]
+    return [x, y, z, point]
+
+
+def mesh_material_setup(
+    mesh_description: MeshDescription,
+    list_materials: List[bpy.types.Material],
+    mesh_uvs: List[Tuple[float, float]],
+    list_uv_nodes: List[bpy.types.NodeInputs],
+    bwm_name: str,
+    obj: bpy.types.Object,
+    mesh: bpy.types.Mesh,
+    uvs_count: int
+) -> None:
+    # Set up uv maps
+    uvs_names = [
+        "_uv_texture",
+        "_uv_ligthmap",
+        "_uv_unknown"
+    ]
+
+    uv_layers = []
+    for i in range(uvs_count):
+        uv_layer = mesh.uv_layers.new(name=bwm_name + uvs_names[i])
+        for faces in obj.data.polygons:
+            for vert_index, loop_index in zip(
+                    faces.vertices, faces.loop_indices
+            ):
+                uv_layer.data[loop_index].uv = mesh_uvs[i][vert_index]
+        uv_layers.append(uv_layer)
+
+    # Set up materials
+    for material_reference in mesh_description.materialRefs:
+        material_definiton = material_reference.materialDefinition
+        current_material = list_materials[material_definiton]
+        obj.data.materials.append(current_material)
+
+        face_offset = material_reference.facesOffset
+        # Apply the uv maps
+        for i in range(len(uv_layers)):
+            uv_node = list_uv_nodes[material_definiton][i]
+            uv_node.uv_map = uv_layers[i].name
+        face_number = min(
+            material_reference.facesSize,
+            mesh_description.facesCount - face_offset
+        )
+
+        # Apply the materials
+        for face in range(face_number):
+            polygon = mesh.polygons[face_offset + face]
+            polygon.material_index = len(obj.data.materials) - 1
+
+    return
+
+
+def read_bwm_data(context, filepath: str):
     print("Reading data from Black & White Model file")
     with open(filepath, 'rb') as file:
         bwm = BWMFile(file)
         uvs_count = len(bwm.vertices[0].uvs)
         vertices = [correct_axis(vertex.position) for vertex in bwm.vertices]
-        mesh_uvs = [
-            [vertex.uvs[i] for vertex in bwm.vertices]
+        normals = [correct_axis(vertex.normal) for vertex in bwm.vertices]
+        meshes_uvs = [
+            [correct_uv(vertex.uvs[i]) for vertex in bwm.vertices]
             for i in range(uvs_count)
-        ]
-
-        uvs_names = [
-            "_uv_texture",
-            "_uv_ligthmap",
-            "_uv_unknown"
         ]
 
         type = bwm.modelHeader.type
@@ -147,7 +228,7 @@ def read_bwm_data(context, filepath):
         if not (type == 2 or type == 3):
             raise ValueError("Not a supported type")
 
-        list_materials, list_uv_maps = zip(*[
+        list_materials, list_uv_nodes = zip(*[
             import_material(
                 material_definition,
                 path.join(path.dirname(filepath), "..\\textures"),
@@ -161,38 +242,28 @@ def read_bwm_data(context, filepath):
         lods = [bpy.data.collections.new("lod" + str(i + 1)) for i in range(4)]
         for n_col in lods:
             mesh_col.children.link(n_col)
+
         for mesh_description in bwm.meshDescriptions:
+            # Reading mesh information from the mesh description
             mesh_name = mesh_description.name.replace('\0', '')
-            mesh = bpy.data.meshes.new(mesh_name)
-            obj = bpy.data.objects.new(
-                mesh_name, mesh
-            )
-
-            rotation = correct_rotation(
-                [
-                    mesh_description.axis1,
-                    mesh_description.axis2,
-                    mesh_description.axis3
-                ]
-            )
-            x = [rotation[i][0] if i < 3 else 0.0 for i in range(4)]
-            y = [rotation[i][1] if i < 3 else 0.0 for i in range(4)]
-            z = [rotation[i][2] if i < 3 else 0.0 for i in range(4)]
-            pose = correct_axis(mesh_description.position)
-            pose = [pose[i] if i < 3 else 1.0 for i in range(4)]
-            mesh.transform(np.transpose([x, y, z, pose]))
-
-            # Set up mesh geometry
             indicies_offset = mesh_description.indiciesOffset
-            if type > 2 and n_mesh > 0:
-                indicies_offset += 2
             indicies_size = mesh_description.indiciesSize
             vertex_offset = mesh_description.vertexOffset
             vertex_size = mesh_description.vertexSize
-            mesh_indexes = bwm.indexes[indicies_offset:
-                                       indicies_size + indicies_offset]
+            # Skins work differently from models
+            if type > 2 and n_mesh > 0:
+                indicies_offset += 2
+
+            # Set up mesh geometry
+            mesh_indexes = bwm.indexes[
+                indicies_offset:indicies_size + indicies_offset
+            ]
             mesh_vertices = vertices[vertex_offset:vertex_size + vertex_offset]
-            mesh_faces = []
+            mesh_normals = normals[vertex_offset:vertex_size + vertex_offset]
+            mesh_uvs = [
+                uvs[vertex_offset:vertex_size + vertex_offset]
+                for uvs in meshes_uvs
+            ]
             if type == 2:
                 mesh_faces = [
                     [index -
@@ -212,87 +283,53 @@ def read_bwm_data(context, filepath):
                     for i in range(mesh_description.facesCount)
                 ]
 
+            mesh = bpy.data.meshes.new(mesh_name)
+            obj = bpy.data.objects.new(mesh_name, mesh)
+            mesh.transform(
+                np.transpose(build_transformation_matrix(mesh_description))
+            )
             mesh.from_pydata(mesh_vertices, [], mesh_faces)
-            n_mesh += 1
 
             # Set up normals
-            for index in range(vertex_offset, vertex_offset + vertex_size):
-                mesh.vertices[index-vertex_offset].normal = correct_axis(
-                    bwm.vertices[index].normal)
+            for index in range(vertex_size):
+                mesh.vertices[index].normal = mesh_normals[index]
             mesh.create_normals_split()
 
-            # Set up uv maps
-            uv_layers = []
-            for i in range(uvs_count):
-                uv_layer = mesh.uv_layers.new(name=bwm_name + uvs_names[i])
-                for faces in obj.data.polygons:
-                    for vert_index, loop_index in zip(
-                            faces.vertices, faces.loop_indices
-                    ):
-                        uv_layer.data[loop_index].uv = correct_uv(
-                            mesh_uvs[i][vert_index+vertex_offset])
-                uv_layers.append(uv_layer)
-
-            # Set up materials
-            for material_reference in mesh_description.materialRefs:
-                material_definiton = material_reference.materialDefinition
-                current_material = list_materials[material_definiton]
-                obj.data.materials.append(current_material)
-
-                face_offset = material_reference.facesOffset
-                # Apply the uv maps
-                for i in range(len(uv_layers)):
-                    uv_node = list_uv_maps[material_definiton][i]
-                    uv_node.uv_map = uv_layers[i].name
-                face_number = min(
-                    material_reference.facesSize,
-                    mesh_description.facesCount - face_offset
-                )
-
-                # Apply the materials
-                for face in range(face_number):
-                    polygon = mesh.polygons[face_offset + face]
-                    polygon.material_index = len(obj.data.materials) - 1
+            mesh_material_setup(
+                mesh_description,
+                list_materials,
+                mesh_uvs,
+                list_uv_nodes,
+                bwm_name,
+                obj,
+                mesh,
+                uvs_count
+            )
 
             # mesh.validate()
-
             lods[mesh_description.lod_level - 1].objects.link(obj)
+            n_mesh += 1
 
-    '''header = [
-        correct_axis(bwm.modelHeader.box1),
-        correct_axis(bwm.modelHeader.box2),
-        correct_axis(bwm.modelHeader.cent),
-        correct_axis(bwm.modelHeader.pnt),
-        correct_axis(bwm.modelHeader.unknowns2)
-        ]
-    if header:
-        mesh = bpy.data.meshes.new("Header")
-        obj = bpy.data.objects.new(
-                mesh.name, mesh
-            )
-        mesh.from_pydata(header, [], [])
-        n_col = bpy.data.collections.new(bwm_name + "_header")
-        n_col.objects.link(obj)
-        col.children.link(n_col)'''
+    if bwm.bones:
+        n_col = bpy.data.collections.new("bones")
+        bone_number = 0
+        draw_size = bwm.modelHeader.height / 20
+        for bone in bwm.bones:
+            empty = bpy.data.objects.new(str(bone_number), None)
+            empty.matrix_world = build_transformation_matrix(bone)
+
+            empty.empty_display_size = draw_size
+            empty.empty_display_type = "ARROWS"
+
+            n_col.objects.link(empty)
+            bone_number += 1
 
     if bwm.entities:
         n_col = bpy.data.collections.new("entities")
         draw_size = bwm.modelHeader.height / 20
         for entity in bwm.entities:
             empty = bpy.data.objects.new(entity.name, None)
-            rotation = correct_rotation(
-                [
-                    entity.axis1,
-                    entity.axis2,
-                    entity.axis3
-                ]
-            )
-            x = [rotation[i][0] if i < 3 else 0.0 for i in range(4)]
-            y = [rotation[i][1] if i < 3 else 0.0 for i in range(4)]
-            z = [rotation[i][2] if i < 3 else 0.0 for i in range(4)]
-            pose = correct_axis(entity.position)
-            pose = [pose[i] if i < 3 else 1.0 for i in range(4)]
-            empty.matrix_world = [x, y, z, pose]
+            empty.matrix_world = build_transformation_matrix(entity)
 
             empty. empty_display_size = draw_size
             empty.empty_display_type = "ARROWS"
@@ -312,8 +349,10 @@ def read_bwm_data(context, filepath):
         n_col.objects.link(obj)
         col.children.link(n_col)
 
-    collision = [correct_axis(collisionPoint.position)
-                 for collisionPoint in bwm.collisionPoints]
+    collision = [
+        correct_axis(collisionPoint.position)
+        for collisionPoint in bwm.collisionPoints
+    ]
     if collision:
         mesh = bpy.data.meshes.new("Collision")
         obj = bpy.data.objects.new(
@@ -323,32 +362,6 @@ def read_bwm_data(context, filepath):
         n_col = bpy.data.collections.new("collision")
         n_col.objects.link(obj)
         col.children.link(n_col)
-
-    if bwm.bones:
-        n_col = bpy.data.collections.new("bones")
-        bone_number = 0
-        draw_size = bwm.modelHeader.height / 20
-        for bone in bwm.bones:
-            empty = bpy.data.objects.new(str(bone_number), None)
-            rotation = correct_rotation(
-                [
-                    bone.axis1,
-                    bone.axis2,
-                    bone.axis3
-                ]
-            )
-            x = [rotation[i][0] if i < 3 else 0.0 for i in range(4)]
-            y = [rotation[i][1] if i < 3 else 0.0 for i in range(4)]
-            z = [rotation[i][2] if i < 3 else 0.0 for i in range(4)]
-            pose = correct_axis(bone.position)
-            pose = [pose[i] if i < 3 else 1.0 for i in range(4)]
-            empty.matrix_world = [x, y, z, pose]
-
-            empty.empty_display_size = draw_size
-            empty.empty_display_type = "ARROWS"
-
-            n_col.objects.link(empty)
-            bone_number += 1
 
         col.children.link(n_col)
 
