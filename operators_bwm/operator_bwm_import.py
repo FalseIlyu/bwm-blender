@@ -1,5 +1,4 @@
 # <pep8-80 compliant>
-from distutils.command.build import build
 import logging
 from bpy.types import Operator
 from bpy.props import StringProperty
