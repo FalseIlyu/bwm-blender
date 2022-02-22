@@ -19,7 +19,7 @@ from operators_bwm.file_definition_bwm import BWMFile, MaterialDefinition
 
 def correct_axis(
     vector: Tuple[float, float, float]
-        ) -> Tuple[float, float, float]:
+) -> Tuple[float, float, float]:
     axis_correction = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
     position = np.array(vector)
     position = axis_correction.dot(position)
@@ -177,7 +177,7 @@ class MESH_COLLECTION_panel(Panel):
     @classmethod
     def poll(cls, context):
         operator = context.space_data.active_operator
-        return operator.bl_idname == "EXPORT_TEST_OT_bwm_data"
+        return operator.bl_idname == 'EXPORT_TEST_OT_bwm_data'
 
     def draw(self, context):
         operator = context.space_data.active_operator

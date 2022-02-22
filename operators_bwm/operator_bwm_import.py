@@ -1,14 +1,14 @@
 # <pep8-80 compliant>
 import logging
 from bpy.types import Operator
-from bpy.props import StringProperty, BoolProperty
+from bpy.props import StringProperty
 from bpy_extras.io_utils import ImportHelper
 from os import path
 from typing import List, Tuple
 import numpy as np
 import bpy
 
-from operators_bwm.file_definition_bwm import BWMFile
+from operators_bwm.file_definition_bwm import BWMFile, MaterialDefinition
 
 
 def correct_axis(
@@ -28,113 +28,106 @@ def correct_rotation(rotation: List[List[float]]) -> np.ndarray:
     return axis_correction.dot(rotation)
 
 
-def tuple_sum(tuple1: Tuple, tuple2: Tuple) -> Tuple:
-    ret = [sum(x) for x in zip(tuple1, tuple2)]
-    return tuple(ret)
-
-
 def correct_uv(vector: Tuple[float, float]) -> Tuple[float, float]:
     return (vector[0], 1.0 - vector[1])
 
 
-def import_materials(
-    bwm_data: BWMFile, texture_path: str, uvs_count: int
-) -> Tuple[List[bpy.types.Material], List[List[bpy.types.NodeInputs]]]:
-    materials = ([], [])
+def import_material(
+    material_definition: MaterialDefinition, texture_path: str, uvs_count: int
+) -> Tuple[bpy.types.Material, List[bpy.types.NodeInputs]]:
     logger = logging.getLogger(__name__)
 
-    for material in bwm_data.materialDefinitions:
-        images = [
-            material.diffuseMap,
-            material.specularMap,
-            material.lightMap,
-            material.normalMap,
-            material.growthMap,
-            material.animatedTexture,
-        ]
-        type = material.type
+    images = [
+        material_definition.diffuseMap,
+        material_definition.specularMap,
+        material_definition.lightMap,
+        material_definition.normalMap,
+        material_definition.growthMap,
+        material_definition.animatedTexture,
+    ]
+    type = material_definition.type
 
-        material = bpy.data.materials.new(name=type)
-        material.use_nodes = True
-        if type == '_plants_' or type == '_yard_' or type == '_vines_':
-            material.blend_method = 'BLEND'
-        else:
-            material.blend_method = 'HASHED'
-        material.alpha_threshold = 1.0
-        materials[0].append(material)
+    material = bpy.data.materials.new(name=type)
+    material.use_nodes = True
+    if type == '_plants_' or type == '_yard_' or type == '_vines_':
+        material.blend_method = 'BLEND'
+    else:
+        material.blend_method = 'HASHED'
+    material.alpha_threshold = 1.0
 
-        material_nodes = material.node_tree.nodes
-        material_link = material.node_tree.links
-        uv_maps = [material_nodes.new("ShaderNodeUVMap")
-                   for i in range(uvs_count)]
-        materials[1].append(uv_maps)
+    material_nodes = material.node_tree.nodes
+    material_link = material.node_tree.links
+    uv_maps = [material_nodes.new("ShaderNodeUVMap") for i in range(uvs_count)]
 
-        BSDF = material_nodes["Principled BSDF"]
-        base_color_node = material_nodes.new("ShaderNodeMixRGB")
-        base_color_node.blend_type = "MULTIPLY"
-        material_link.new(BSDF.inputs[0], base_color_node.outputs[0])
+    BSDF = material_nodes["Principled BSDF"]
+    base_color_node = material_nodes.new("ShaderNodeMixRGB")
+    base_color_node.blend_type = "MULTIPLY"
+    base_color_node.inputs[1].default_value = (1.0, 1.0, 1.0, 1.0)
+    base_color_node.inputs[2].default_value = (1.0, 1.0, 1.0, 1.0)
+    material_link.new(BSDF.inputs[0], base_color_node.outputs[0])
 
-        l_inputs = [
-            [("base_color_node", 1), ("base_color_node", 0),
-             ("BSDF", 19), ("texture", 0)],
-            [("BSDF", 5), ("BSDF", 6), ("texture", 0)],
-            [("base_color_node", 2), ("base_color_node", 0), ("texture", 0)],
-            [("BSDF", 20), ("texture", 0)],
-            [("texture", 0)],
-            [("texture", 0)]
-        ]
-        l_outputs = [
-            [
-                ("texture", 0),
-                ("texture", 1),
-                ("texture", 1),
-                ("uv_maps[0]", 0)
-            ],
-            [("texture", 0), ("texture", 1), ("uv_maps[0]", 0)],
-            [("texture", 0), ("texture", 1), ("uv_maps[1]", 0)],
-            [("texture", 0), ("uv_maps[0]", 0)],
-            [("uv_maps[0]", 0)],
-            [("uv_maps[0]", 0)]
-        ]
-        node_dict = {
-            "base_color_node": base_color_node,
-            "BSDF": BSDF,
-            "texture": None
-        }
-        for i in range(uvs_count):
-            node_dict["uv_maps[{}]".format(i)] = uv_maps[i]
+    l_inputs = [
+        [
+            ("base_color_node", 1), ("base_color_node", 0),
+            ("BSDF", 19), ("texture", 0)
+        ],
+        [("BSDF", 5), ("BSDF", 6), ("texture", 0)],
+        [("base_color_node", 2), ("base_color_node", 0), ("texture", 0)],
+        [("BSDF", 20), ("texture", 0)],
+        [("texture", 0)],
+        [("texture", 0)]
+    ]
+    l_outputs = [
+        [
+            ("texture", 0),
+            ("texture", 1),
+            ("texture", 1),
+            ("uv_maps[0]", 0)
+        ],
+        [("texture", 0), ("texture", 1), ("uv_maps[0]", 0)],
+        [("texture", 0), ("texture", 1), ("uv_maps[1]", 0)],
+        [("texture", 0), ("uv_maps[0]", 0)],
+        [("uv_maps[0]", 0)],
+        [("uv_maps[0]", 0)]
+    ]
+    node_dict = {
+        "base_color_node": base_color_node,
+        "BSDF": BSDF,
+        "texture": None
+    }
+    for i in range(uvs_count):
+        node_dict["uv_maps[{}]".format(i)] = uv_maps[i]
 
-        for (file, inputs, outputs) in zip(images, l_inputs, l_outputs):
-            try:
-                if file != "":
-                    image = bpy.data.images.load(filepath=path.join(
-                        texture_path, file), check_existing=True)
-                    texture = material_nodes.new('ShaderNodeTexImage')
-                    texture.image = image
-                    node_dict["texture"] = texture
-                    for (input, output) in zip(inputs, outputs):
-                        n_input = node_dict[input[0]]
-                        n_output = node_dict[output[0]]
-                        material_link.new(
-                            n_input.inputs[input[1]],
-                            n_output.outputs[output[1]]
-                        )
-            except Exception:
-                logger.error(
-                    "Error while importing " + file,
-                    exc_info=True
-                )
+    for (file, inputs, outputs) in zip(images, l_inputs, l_outputs):
+        try:
+            if file != "":
+                image = bpy.data.images.load(filepath=path.join(
+                    texture_path, file), check_existing=True)
+                texture = material_nodes.new('ShaderNodeTexImage')
+                texture.image = image
+                node_dict["texture"] = texture
+                for (input, output) in zip(inputs, outputs):
+                    n_input = node_dict[input[0]]
+                    n_output = node_dict[output[0]]
+                    material_link.new(
+                        n_input.inputs[input[1]],
+                        n_output.outputs[output[1]]
+                    )
+        except Exception:
+            logger.error(
+                "Error while importing " + file,
+                exc_info=True
+            )
 
-    return materials
+    return (material, uv_maps)
 
 
-def read_bwm_data(context, filepath, use_bwm_setting):
+def read_bwm_data(context, filepath):
     print("Reading data from Black & White Model file")
     with open(filepath, 'rb') as file:
         bwm = BWMFile(file)
         uvs_count = len(bwm.vertices[0].uvs)
         vertices = [correct_axis(vertex.position) for vertex in bwm.vertices]
-        # normals = [correct_axis(vertex.normal) for vertex in bwm.vertices]
         mesh_uvs = [
             [vertex.uvs[i] for vertex in bwm.vertices]
             for i in range(uvs_count)
@@ -154,8 +147,13 @@ def read_bwm_data(context, filepath, use_bwm_setting):
         if not (type == 2 or type == 3):
             raise ValueError("Not a supported type")
 
-        materials = import_materials(bwm, path.join(
-            path.dirname(filepath), "..\\textures"), uvs_count)
+        list_materials, list_uv_maps = zip(*[
+            import_material(
+                material_definition,
+                path.join(path.dirname(filepath), "..\\textures"),
+                uvs_count
+            ) for material_definition in bwm.materialDefinitions
+        ])
 
         n_mesh = 0
         mesh_col = bpy.data.collections.new("mesh")
@@ -238,13 +236,13 @@ def read_bwm_data(context, filepath, use_bwm_setting):
             # Set up materials
             for material_reference in mesh_description.materialRefs:
                 material_definiton = material_reference.materialDefinition
-                current_material = materials[0][material_definiton]
+                current_material = list_materials[material_definiton]
                 obj.data.materials.append(current_material)
 
                 face_offset = material_reference.facesOffset
-                # Apply the uv maps (should be done elsewhere)
+                # Apply the uv maps
                 for i in range(len(uv_layers)):
-                    uv_node = materials[1][material_definiton][i]
+                    uv_node = list_uv_maps[material_definiton][i]
                     uv_node.uv_map = uv_layers[i].name
                 face_number = min(
                     material_reference.facesSize,
@@ -378,26 +376,8 @@ class ImportBWMData(Operator, ImportHelper):
         maxlen=255,  # Max internal buffer length, longer would be clamped.
     )
 
-    # List of operator properties, the attributes will be assigned
-    # to the class instance from the operator settings before calling.
-    use_setting: BoolProperty(
-        name="Example Boolean",
-        description="Example Tooltip",
-        default=True,
-    )
-
-    '''type: EnumProperty(
-        name="Example Enum",
-        description="Choose between two items",
-        items=(
-            ('OPT_A', "First Option", "Description one"),
-            ('OPT_B', "Second Option", "Description two"),
-        ),
-        default='OPT_A',
-    )'''
-
     def execute(self, context):
-        return read_bwm_data(context, self.filepath, self.use_setting)
+        return read_bwm_data(context, self.filepath)
 
 
 # Only needed if you want to add into a dynamic menu
