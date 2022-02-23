@@ -6,7 +6,7 @@ from typing import List
 from glob import glob
 import struct
 
-from operators_bwm.file_definition_utilities import (
+from .file_definition_utilities import (
     read_float,
     read_int16,
     read_int32,

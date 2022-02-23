@@ -5,6 +5,7 @@ from bpy.props import (
     EnumProperty,
     BoolProperty,
     StringProperty,
+    PointerProperty,
     CollectionProperty
 )
 from bpy_extras.io_utils import ExportHelper
@@ -14,7 +15,7 @@ import bpy
 
 import numpy as np
 
-from operators_bwm.file_definition_bwm import BWMFile, MaterialDefinition
+from .file_definition_bwm import BWMFile, MaterialDefinition
 
 
 def correct_axis(
@@ -54,12 +55,19 @@ def organize_bwm_data() -> BWMFile:
 def write_bwm_data(context, filepath, use_bwm_setting):
     print("running write_bwm_data...")
 
-    with open(filepath, 'w', encoding='utf-8') as f:
-        file = organize_bwm_data()
-        file.write()
-        f.close()
+    file = organize_bwm_data()
+    file.write(filepath)
 
     return {'FINISHED'}
+
+
+class Mesh_Properties(bpy.types.PropertyGroup):
+
+    mesh: PointerProperty(
+        type=bpy.types.Mesh,
+        name="Mesh",
+        description="Mesh"
+    )
 
 
 # ExportHelper is a helper class, defines filename and
@@ -88,8 +96,8 @@ class ExportBWMData(Operator, ExportHelper):
         name="Version",
         description="Version of the .bwm file",
         items=(
-            ('OPT_FIVE', "Version 5.0", "Version 5.0"),
-            ('OPT_SIX', "Version 6.0", "Version 6.0"),
+            ('OPT_FIVE', "5.0", "Version 5.0"),
+            ('OPT_SIX', "6.0", "Version 6.0"),
         ),
         default='OPT_FIVE',
     )
@@ -104,6 +112,19 @@ class ExportBWMData(Operator, ExportHelper):
         default='OPT_MODEL',
     )
 
+    experimental: BoolProperty(
+        name="Experimental",
+        description="""Allow add any entities (bone, entities, etc) regardless
+         of file type""",
+        default=False,
+    )
+
+    pack_texture: BoolProperty(
+        name="Pack texture",
+        description="Pack texture in a folder with the file",
+        default=False,
+    )
+
     empty_texture: BoolProperty(
         name="Generate empty texture",
         description="Boolean to tell to generate an empty texture",
@@ -111,7 +132,7 @@ class ExportBWMData(Operator, ExportHelper):
     )
 
     mesh_list: CollectionProperty(
-        type=bpy.types.Mesh,
+        type=Mesh_Properties,
         name="Mesh List",
         description="List of the mesh inside the file",
     )
@@ -138,16 +159,53 @@ class ExportBWMData(Operator, ExportHelper):
 
     def draw(self, context):
         layout = self.layout
-        layout.prop(self, 'version', expand=True)
+        layout.prop(self, 'version')
         layout.prop(self, 'type', expand=True)
-        layout.prop(self, 'empty_texture')
+        layout.prop(self, 'experimental')
 
 
-class MESH_UIList(UIList):
+class BwmGenericPanel(Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "EXPORTBWM_PT_BwmGenericPanel"
+
+    @classmethod
+    def poll(cls, context: bpy.types.Context):
+        operator = context.space_data.active_operator
+        if operator.bl_idname == 'EXPORT_TEST_OT_bwm_data':
+            if operator.experimental:
+                return True
+            if operator.type == 'OPT_SKIN':
+                if (
+                    cls.bl_label == "EXPORT_BWM_PT_" or
+                    cls.bl_label == "Unknowns" or
+                    cls.bl_label == "Collisions"
+                ):
+                    return False
+            if operator.type == 'OPT_MODEL':
+                if cls.bl_label == "Bones":
+                    return False
+            return True
+        else:
+            return False
+
+
+class MATERIAL_PT_(BwmGenericPanel):
+    bl_label = "Materials"
+
+    def draw(self, context: bpy.types.Context):
+        operator = context.space_data.active_operator
+        layout = self.layout
+
+        layout.prop(operator, 'pack_texture')
+        layout.prop(operator, 'empty_texture')
+
+
+class MESH_UL_List(UIList):
     def draw_item(
         self,
-        context: 'Context',
-        layout: 'UILayout',
+        context: bpy.types.Context,
+        layout: bpy.types.UILayout,
         data: 'AnyType',
         item: 'AnyType',
         icon: int,
@@ -169,30 +227,74 @@ class MESH_UIList(UIList):
             layout.label(text="", icon=custom_icon)
 
 
-class MESH_COLLECTION_panel(Panel):
-    bl_space_type = 'FILE_BROWSER'
-    bl_region_type = 'TOOL_PROPS'
+class MESH_COLLECTION_PT_(BwmGenericPanel):
     bl_label = "Meshses"
 
-    @classmethod
-    def poll(cls, context):
-        operator = context.space_data.active_operator
-        return operator.bl_idname == 'EXPORT_TEST_OT_bwm_data'
-
-    def draw(self, context):
+    def draw(self, context: bpy.types.Context):
         operator = context.space_data.active_operator
 
-        # column = self.layout.column(align=False)
         row = self.layout.row()
         row.template_list(
-            "MESH_UIList", "MESH_UIList",
-            operator, "mesh_list",
-            operator, "mesh_list_active"
+            'MESH_UL_List', "Mesh_List",
+            operator, 'mesh_list',
+            operator, 'mesh_list_active'
         )
 
-        # layout.prop(operator, 'mesh_list')
 
-# Only needed if you want to add into a dynamic menu
+class MESH_ENTITIES_PT_(BwmGenericPanel):
+    bl_label = "Entities"
+
+    def draw(self, context: bpy.types.Context):
+        operator = context.space_data.active_operator
+
+        row = self.layout.row()
+        row.template_list(
+            'MESH_UL_List', "Mesh_List",
+            operator, 'mesh_list',
+            operator, 'mesh_list_active'
+        )
+
+
+class MESH_UNKNOWN_PT_(BwmGenericPanel):
+    bl_label = "Unknowns"
+
+    def draw(self, context: bpy.types.Context):
+        operator = context.space_data.active_operator
+
+        row = self.layout.row()
+        row.template_list(
+            'MESH_UL_List', "Mesh_List",
+            operator, 'mesh_list',
+            operator, 'mesh_list_active'
+        )
+
+
+class MESH_COLLISION_PT_(BwmGenericPanel):
+    bl_label = "Collisions"
+
+    def draw(self, context: bpy.types.Context):
+        operator = context.space_data.active_operator
+
+        row = self.layout.row()
+        row.template_list(
+            'MESH_UL_List', "Mesh_List",
+            operator, 'mesh_list',
+            operator, 'mesh_list_active'
+        )
+
+
+class MESH_BONE_PT_(BwmGenericPanel):
+    bl_label = "Bones"
+
+    def draw(self, context: bpy.types.Context):
+        operator = context.space_data.active_operator
+
+        row = self.layout.row()
+        row.template_list(
+            'MESH_UL_List', "Mesh_List",
+            operator, 'mesh_list',
+            operator, 'mesh_list_active'
+        )
 
 
 def menu_func_export(self, context):
@@ -202,15 +304,11 @@ def menu_func_export(self, context):
 
 def register():
     bpy.utils.register_class(ExportBWMData)
-    bpy.utils.register_class(MESH_UIList)
-    bpy.utils.register_class(MESH_COLLECTION_panel)
     bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 
 
 def unregister():
     bpy.utils.unregister_class(ExportBWMData)
-    bpy.utils.unregister_class(MESH_UIList)
-    bpy.utils.unregister_class(MESH_COLLECTION_panel)
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
 
 

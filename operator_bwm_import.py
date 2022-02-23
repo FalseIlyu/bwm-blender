@@ -8,7 +8,7 @@ from typing import List, Tuple, Union
 import numpy as np
 import bpy
 
-from operators_bwm.file_definition_bwm import (
+from .file_definition_bwm import (
     Bone,
     Entity,
     BWMFile,
@@ -323,6 +323,8 @@ def read_bwm_data(context, filepath: str):
             n_col.objects.link(empty)
             bone_number += 1
 
+        col.children.link(n_col)
+
     if bwm.entities:
         n_col = bpy.data.collections.new("entities")
         draw_size = bwm.modelHeader.height / 20
@@ -360,8 +362,6 @@ def read_bwm_data(context, filepath: str):
         mesh.from_pydata(collision, [], [])
         n_col = bpy.data.collections.new("collision")
         n_col.objects.link(obj)
-        col.children.link(n_col)
-
         col.children.link(n_col)
 
     bpy.context.scene.collection.children.link(col)
