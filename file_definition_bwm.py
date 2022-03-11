@@ -371,7 +371,7 @@ class MeshDescription:
             self.u2 = 0
             self.lod_level = 1
             self.name = ''
-            self.unknowns3 = [0.0 for i in range(2)]
+            self.unknowns3 = [0 for i in range(2)]
             self.materialRefs: List[MaterialRef] = []
 
     def write(self, writer: BufferedWriter = None):
@@ -399,7 +399,7 @@ class MeshDescription:
         write_int32(writer, self.u2)
         write_int32(writer, self.lod_level)
         write_str(writer, self.name, 64)
-        write_vector(writer, self.unknowns3, write_float)
+        write_vector(writer, self.unknowns3, write_int32)
 
 
 class MaterialRef:

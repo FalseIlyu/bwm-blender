@@ -238,9 +238,7 @@ def read_bwm_data(context, filepath: str):
         n_mesh = 0
         mesh_col = bpy.data.collections.new("mesh")
         col.children.link(mesh_col)
-        lods = [bpy.data.collections.new("lod" + str(i + 1)) for i in range(4)]
-        for n_col in lods:
-            mesh_col.children.link(n_col)
+        lods = [[] for i in range(4)]
 
         for mesh_description in bwm.meshDescriptions:
             # Reading mesh information from the mesh description
@@ -306,8 +304,16 @@ def read_bwm_data(context, filepath: str):
             )
 
             # mesh.validate()
-            lods[mesh_description.lod_level - 1].objects.link(obj)
+            lods[mesh_description.lod_level - 1].append(obj)
             n_mesh += 1
+
+        for lod_level in range(4):
+            meshses = lods[lod_level]
+            if meshses:
+                n_col = bpy.data.collections.new("lod" + str(lod_level + 1))
+                for mesh in meshses:
+                    n_col.objects.link(mesh)
+                mesh_col.children.link(n_col)
 
     if bwm.bones:
         n_col = bpy.data.collections.new("bones")
@@ -394,22 +400,15 @@ class ImportBWMData(Operator, ImportHelper):
 
 # Only needed if you want to add into a dynamic menu
 def menu_func_import(self, context):
-    self.layout.operator(ImportBWMData.bl_idname,
-                         text="Black & White Model (.bwm)")
+    self.layout.operator(
+        ImportBWMData.bl_idname,
+        text="Black & White Model (.bwm)"
+    )
 
 
 def register():
     bpy.utils.register_class(ImportBWMData)
-    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 
 def unregister():
     bpy.utils.unregister_class(ImportBWMData)
-    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
-
-
-if __name__ == "__main__":
-    register()
-
-    # test call
-    bpy.ops.import_test.bwm_data('INVOKE_DEFAULT')
