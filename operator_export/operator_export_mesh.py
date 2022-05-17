@@ -13,7 +13,7 @@ from ..operator_utilities.file_definition_bwm import (
 )
 from ..operator_utilities.vector_utils import (
     correct_uv,
-    zxy_to_xyz
+    xyz_to_zxy
 )
 
 
@@ -33,11 +33,11 @@ def organise_mesh_data(
                     mesh_desc = MeshDescription()
                     mesh_desc.unknown_int = 2
                     mesh_desc.name = obj.name
-                    rotation = zxy_to_xyz(obj.matrix_world[:3, :3])
+                    rotation = xyz_to_zxy(obj.matrix_world[:3][:3])
                     mesh_desc.axis1 = rotation[0]
                     mesh_desc.axis2 = rotation[1]
                     mesh_desc.axis3 = rotation[2]
-                    mesh_desc.position = zxy_to_xyz(obj.location)
+                    mesh_desc.position = xyz_to_zxy(obj.location)
 
                     # Organise mesh description metadata
                     obj = obj.to_mesh(preserve_all_data_layers=True)
@@ -91,7 +91,7 @@ def organise_vertex_data(
 ) -> List[bpy.types.MeshVertex]:
     num_vertex = len(vertices)
     mesh_description.vertexSize = num_vertex
-    loc_list = [zxy_to_xyz(vertex.co) for vertex in vertices]
+    loc_list = [xyz_to_zxy(vertex.co) for vertex in vertices]
     x = [loc[0] for loc in loc_list]
     y = [loc[1] for loc in loc_list]
     z = [loc[2] for loc in loc_list]
@@ -118,8 +118,8 @@ def organise_vertex_data(
     for vertex in range(num_vertex):
         c_vertex = vertices[vertex]
         r_vertex = ret_vertices[vertex]
-        r_vertex.position = zxy_to_xyz(c_vertex.co)
-        r_vertex.normal = zxy_to_xyz(c_vertex.normal)
+        r_vertex.position = xyz_to_zxy(c_vertex.co)
+        r_vertex.normal = xyz_to_zxy(c_vertex.normal)
         ret_vertices[vertex] = r_vertex
         for uv_layer in uv_layers:
             ret_vertices[vertex].uvs.append((0.0, 0.0))
