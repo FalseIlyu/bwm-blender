@@ -33,7 +33,8 @@ def read_bwm_data(context, filepath: str):
                 material_definition,
                 path.join(path.dirname(filepath), "..\\textures"),
                 uvs_count
-            ) for material_definition in bwm.materialDefinitions
+            )
+            for material_definition in bwm.materialDefinitions
         ])
 
         mesh_col = bpy.data.collections.new("mesh")
@@ -49,7 +50,6 @@ def read_bwm_data(context, filepath: str):
                 bwm_name
             )
 
-            # mesh.validate()
             lods[mesh_description.lod_level - 1].append(obj)
 
         for lod_level, meshses in enumerate(lods):
@@ -63,14 +63,15 @@ def read_bwm_data(context, filepath: str):
             n_col = bpy.data.collections.new("bones")
             draw_size = bwm.modelHeader.height / 20
             for i_bone, bone in enumerate(bwm.bones):
-                empty = bpy.data.objects.new(str(i_bone), None)
-                empty.matrix_world = construct_transformation_matrix(
-                    bone, zxy_to_xyz)
+                empty_bone = bpy.data.objects.new(str(i_bone), None)
+                empty_bone.matrix_world = construct_transformation_matrix(
+                    bone, lambda x: x
+                )
 
-                empty.empty_display_size = draw_size
-                empty.empty_display_type = "ARROWS"
+                empty_bone.empty_display_size = draw_size
+                empty_bone.empty_display_type = "ARROWS"
 
-                n_col.objects.link(empty)
+                n_col.objects.link(empty_bone)
 
             col.children.link(n_col)
 
@@ -78,39 +79,34 @@ def read_bwm_data(context, filepath: str):
             n_col = bpy.data.collections.new("entities")
             draw_size = bwm.modelHeader.height / 20
             for entity in bwm.entities:
-                empty = bpy.data.objects.new(entity.name, None)
-                empty.matrix_world = construct_transformation_matrix(
-                    entity, zxy_to_xyz)
+                empty_entity = bpy.data.objects.new(entity.name, None)
+                empty_entity.matrix_world = construct_transformation_matrix(
+                    entity, lambda x: x
+                )
 
-                empty. empty_display_size = draw_size
-                empty.empty_display_type = "ARROWS"
+                empty_entity.empty_display_size = draw_size
+                empty_entity.empty_display_type = "ARROWS"
 
-                n_col.objects.link(empty)
+                n_col.objects.link(empty_entity)
 
             col.children.link(n_col)
 
-        unknowns = [
-            zxy_to_xyz(unknown.unknown) for unknown in bwm.unknowns1
-            ]
+        unknowns = [unknown.unknown for unknown in bwm.unknowns1]
         if unknowns:
             mesh = bpy.data.meshes.new("Unknowns")
-            obj = bpy.data.objects.new(
-                mesh.name, mesh
-            )
+            obj = bpy.data.objects.new(mesh.name, mesh)
             mesh.from_pydata(unknowns, [], [])
             n_col = bpy.data.collections.new("unknowns")
             n_col.objects.link(obj)
             col.children.link(n_col)
 
         collision = [
-            zxy_to_xyz(collisionPoint.position)
+            collisionPoint.position
             for collisionPoint in bwm.collisionPoints
         ]
         if collision:
             mesh = bpy.data.meshes.new("Collision")
-            obj = bpy.data.objects.new(
-                mesh.name, mesh
-            )
+            obj = bpy.data.objects.new(mesh.name, mesh)
             mesh.from_pydata(collision, [], [])
             n_col = bpy.data.collections.new("collision")
             n_col.objects.link(obj)

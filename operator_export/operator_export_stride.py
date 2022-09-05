@@ -17,7 +17,7 @@ def create_vertex_stride(vertex: Vertex) -> Stride:
         stride.stride += 12
     for uv in vertex.uvs:
         stride.idSizes.append((StrideType.UV_MAP, StrideSize.TUPLE))
-        stride.size += 8
+        stride.stride += 8
 
     stride.count = len(stride.idSizes)
     stride.size = 0x88 - 4 - (8 * stride.count)

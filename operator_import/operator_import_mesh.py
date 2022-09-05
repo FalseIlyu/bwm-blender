@@ -146,7 +146,14 @@ def bpy_mesh_from_definition(
     for index, vertex in enumerate(mesh.vertices):
         vertex.normal = mesh_normals[index]
     mesh.create_normals_split()
+
+    """# if file_type == FileType.SKIN:
     obj.matrix_world = construct_transformation_matrix(
-        mesh_description, zxy_to_xyz)
+        mesh_description, zxy_to_xyz
+    )"""
+    """if file_type == FileType.MODEL:
+        obj.matrix_world = construct_transformation_matrix(
+            mesh_description, zxy_to_xyz
+        )"""
 
     return obj, mesh
