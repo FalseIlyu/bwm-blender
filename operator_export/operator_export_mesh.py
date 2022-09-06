@@ -2,7 +2,7 @@ import bpy
 import bmesh
 import math
 from statistics import mean
-from typing import List
+from typing import Dict, List, Tuple
 
 from ..operator_utilities.file_definition_bwm import (
     BWMFile,
@@ -21,151 +21,212 @@ from ..operator_utilities.vector_utils import (
 
 def organise_mesh_data(
     mesh_collections: bpy.types.Collection,
-    bwm_data: BWMFile
+    bwm_data: BWMFile,
 ) -> BWMFile:
 
     bwm_data.meshDescriptions = []
     type = bwm_data.modelHeader.type
-    # materials = []
+    l_materials = list(bpy.data.materials)
 
-    face_offset = 0
-    vertex_offset = 0
     for lod in range(1, 5):
         lod_collection = mesh_collections.children.get(f"lod{lod}")
         if lod_collection:
             for _, obj in lod_collection.objects.items():
                 if obj.type == 'MESH':
-                    mesh_desc = MeshDescription()
-                    mesh_desc.unknown_int = 2
-                    mesh_desc.name = obj.name
-                    rotation = [vector[:3] for vector in obj.matrix_world[:3]]
-                    mesh_desc.zaxis = rotation[0]
-                    mesh_desc.xaxis = rotation[1]
-                    mesh_desc.yaxis = rotation[2]
-                    mesh_desc.position = obj.location
-
-                    # Organise mesh description metadata
-                    obj = obj.to_mesh(preserve_all_data_layers=True)
-                    b_mesh = bmesh.new()
-                    b_mesh.from_mesh(obj)
-                    mesh_desc.lod_level = lod
-                    mesh_desc.bbox_volume = b_mesh.calc_volume()
-
+                    mesh_desc = create_basic_description(obj, lod)
                     bwm_data.meshDescriptions.append(mesh_desc)
 
-                    # Extract vertex
-                    mesh_desc.vertexOffset = len(bwm_data.vertices)
-                    vertices_add = organise_vertex_data(
-                        mesh_desc,
-                        obj.vertices,
-                        obj.uv_layers
-                    )
-                    bwm_data.vertices.extend(vertices_add)
-                    mesh_desc.height = mesh_desc.box2[1]
-
-                    # TODO Extract bone weight data
-
-                    # Create indicies and face data
                     mesh_desc.indiciesOffset = len(bwm_data.indexes)
-                    indexes_add = organise_index_data(
-                        mesh_desc, obj.polygons, type
+                    mesh_desc.vertexOffset = len(bwm_data.vertices)
+                    mesh_desc.facesCount = len(obj.data.polygons)
+                    vertex_offset = mesh_desc.vertexOffset
+                    indicies_offset = mesh_desc.indiciesOffset
+                    # Group polygons by materials.
+                    d_material_polygon = {
+                        material: [] for material in range(len(l_materials))
+                    }
+                    for polygon in obj.data.polygons:
+                        polygon_material = polygon.material_index
+                        d_material_polygon[polygon_material].append(polygon)
+
+                    face_offset = 0
+                    for material_slot in d_material_polygon:
+                        l_polygons = d_material_polygon[material_slot]
+                        if not l_polygons:
+                            continue
+
+                        vertices_add, d_indexes = organise_vertex_data(
+                            l_polygons,
+                            obj.data.vertices,
+                            obj.data.uv_layers
+                        )
+                        bwm_data.vertices.extend(vertices_add)
+
+                        indexes_add = organise_index_data(
+                            l_polygons, vertex_offset, d_indexes, type
+                        )
+                        bwm_data.indexes.extend(indexes_add)
+
+                        # TODO Extract bone weight data
+
+                        # Create material
+                        material = obj.material_slots[material_slot].material
+                        mat_ref = MaterialRef()
+                        mat_ref.materialDefinition = l_materials.index(
+                            material
+                        )
+                        mat_ref.facesOffset = face_offset
+                        mat_ref.vertexOffset = vertex_offset
+                        mat_ref.indiciesOffset = indicies_offset
+                        mat_ref.facesSize = len(l_polygons)
+                        mat_ref.indiciesSize = len(indexes_add)
+                        mat_ref.vertexSize = len(vertices_add)
+                        mesh_desc.materialRefs.append(mat_ref)
+
+                        face_offset += mat_ref.facesSize
+                        indicies_offset += mat_ref.indiciesSize
+                        vertex_offset += mat_ref.vertexSize
+
+                    mesh_desc.indiciesSize = indicies_offset
+                    mesh_desc.indiciesSize -= mesh_desc.indiciesOffset
+                    mesh_desc.vertexSize = vertex_offset
+                    mesh_desc.vertexSize -= mesh_desc.vertexOffset
+
+                    mesh_desc.materialRefsCount = len(mesh_desc.materialRefs)
+                    create_bbox(
+                        mesh_desc,
+                        obj.data.vertices
                     )
-                    indexes_add = [i + vertex_offset for i in indexes_add]
-                    bwm_data.indexes.extend(indexes_add)
-                    vertex_offset = len(bwm_data.vertices)
-
-                    mat_ref = MaterialRef()
-                    mat_ref.indiciesOffset = mesh_desc.indiciesOffset
-                    mat_ref.indiciesSize = mesh_desc.indiciesSize
-                    mat_ref.facesOffset = face_offset
-                    mat_ref.facesSize = mesh_desc.facesCount
-                    mat_ref.vertexOffset = mesh_desc.vertexOffset
-                    mat_ref.vertexSize = mesh_desc.vertexSize
-                    mat_ref.materialDefinition = 0
-                    mesh_desc.materialRefs = [mat_ref]
-
-                    face_offset += mat_ref.facesSize
 
     return bwm_data
 
 
+def create_basic_description(
+    obj: bpy.types.Object,
+    lod: int
+) -> MeshDescription:
+
+    mesh_desc = MeshDescription()
+
+    mesh_desc.unknown_int = 2
+    if lod > 1:
+        mesh_desc.unknown_int = 1
+    mesh_desc.name = obj.name.split('.')[0]
+    rotation = xyz_to_zxy(
+        [vector[:3] for vector in obj.matrix_world[:3]]
+    )
+    mesh_desc.zaxis = rotation[0]
+    mesh_desc.yaxis = rotation[1]
+    mesh_desc.xaxis = rotation[2]
+    mesh_desc.position = obj.location
+
+    # Organise mesh description metadata
+    obj = obj.to_mesh(preserve_all_data_layers=True)
+    b_mesh = bmesh.new()
+    b_mesh.from_mesh(obj)
+    mesh_desc.lod_level = lod
+    mesh_desc.bbox_volume = b_mesh.calc_volume()
+
+    return mesh_desc
+
+
 def organise_vertex_data(
-    mesh_description: MeshDescription,
+    polygons: List[bpy.types.MeshPolygon],
     vertices: List[bpy.types.MeshVertex],
     uv_layers: List[bpy.types.MeshUVLoopLayer]
-) -> List[bpy.types.MeshVertex]:
+) -> Tuple[List[bpy.types.MeshVertex], Dict[int, int]]:
+    poly_vertices = list({
+        vertex for polygon in polygons for vertex in polygon.vertices
+    })
+    num_vertex = len(poly_vertices)
 
+    ret_vertices = [Vertex(Stride()) for _ in range(num_vertex)]
+    d_index = {}
+    vertex = 0
+    for face in polygons:
+        for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
+            if vert_idx in d_index.keys():
+                continue
+
+            c_vertex = vertices[vert_idx]
+            r_vertex = ret_vertices[vertex]
+            r_vertex.position = tuple(xyz_to_zxy(c_vertex.co))
+            r_vertex.normal = tuple(xyz_to_zxy(c_vertex.normal))
+            ret_vertices[vertex] = r_vertex
+            d_index[vert_idx] = vertex
+
+            for uv_layer in uv_layers:
+                if UVType(0).name in uv_layer.name:
+                    uv_idx = 0
+                elif UVType(1).name in uv_layer.name:
+                    uv_idx = 1
+                elif UVType(2).name in uv_layer.name:
+                    uv_idx = 2
+                else:
+                    continue
+
+                uv_coord = correct_uv(uv_layer.data[loop_idx].uv)
+                r_vertex.uvs.insert(uv_idx, uv_coord)
+
+            vertex += 1
+
+    return ret_vertices, d_index
+
+
+def organise_index_data(
+    faces_seq: List[bpy.types.MeshPolygon],
+    vertex_offset: int,
+    d_indexes: Dict[int, int],
+    type: int
+) -> List[int]:
+
+    faces = [
+        [index for index in face.vertices]
+        for face in faces_seq
+    ]
+
+    if type == FileType.SKIN:
+        indexes = [
+            index for i in range(len(faces)) for index in faces[i]
+            if i % 4 == 0
+        ]
+
+    elif type == FileType.MODEL:
+        indexes = [
+            index for i in range(len(faces)) for index in faces[i]
+        ]
+
+    indexes = [d_indexes[i] + vertex_offset for i in indexes]
+    return indexes
+
+
+def create_bbox(
+    mesh_desc: MeshDescription,
+    vertices: List[bpy.types.MeshVertex]
+) -> None:
     num_vertex = len(vertices)
-    mesh_description.vertexSize = num_vertex
-    loc_list = [vertex.co for vertex in vertices]
+    mesh_desc.vertexSize = num_vertex
+    loc_list = [tuple(xyz_to_zxy(vertex.co)) for vertex in vertices]
     x = [loc[0] for loc in loc_list]
     y = [loc[1] for loc in loc_list]
     z = [loc[2] for loc in loc_list]
-    mesh_description.cent = (
+    mesh_desc.cent = (
         mean(x),
         mean(y),
         mean(z)
     )
-    mesh_description.box1 = (
+    mesh_desc.box1 = (
         min(x),
         min(y),
         min(z)
     )
-    mesh_description.box2 = (
+    mesh_desc.box2 = (
         max(x),
         max(y),
         max(z)
     )
-    mesh_description.radius = max(
-        [math.dist(loc, mesh_description.cent) for loc in loc_list]
+    mesh_desc.radius = max(
+        [math.dist(loc, mesh_desc.cent) for loc in loc_list]
     )
-    ret_vertices = [Vertex(Stride()) for i in range(num_vertex)]
-
-    for vertex in range(num_vertex):
-        c_vertex = vertices[vertex]
-        r_vertex = ret_vertices[vertex]
-        r_vertex.position = c_vertex.co
-        r_vertex.normal = c_vertex.normal
-        ret_vertices[vertex] = r_vertex
-
-        for uv_layer in uv_layers:
-            if UVType(0).name in uv_layer.name:
-                uv_idx = 0
-            elif UVType(1).name in uv_layer.name:
-                uv_idx = 1
-            elif UVType(2).name in uv_layer.name:
-                uv_idx = 2
-            else:
-                continue
-
-            uv_coord = correct_uv(uv_layer.data[vertex].uv)
-            r_vertex.uvs.insert(uv_idx, uv_coord)
-
-    return ret_vertices
-
-
-def organise_index_data(
-    mesh_description: MeshDescription,
-    faces_seq: List[bpy.types.MeshPolygon],
-    type: int
-) -> List[int]:
-
-    vertex_offset = mesh_description.vertexOffset
-    indexes = [
-        [index + vertex_offset for index in face.vertices]
-        for face in faces_seq
-    ]
-    mesh_description.facesCount = len(indexes)
-
-    if type == FileType.SKIN:
-        indexes = [
-            index for i in mesh_description.facesCount for index in indexes[i]
-            if i % 4 == 0
-        ]
-        mesh_description.indiciesSize = len(indexes)
-
-    elif type == FileType.MODEL:
-        indexes = [index for face in faces_seq for index in face.vertices]
-        mesh_description.indiciesSize = len(indexes)
-
-    return indexes
+    mesh_desc.unknowns1 = mesh_desc.box2
+    mesh_desc.height = mesh_desc.box2[1]

@@ -9,19 +9,35 @@ from .file_definition_bwm import (
 
 
 def zxy_to_xyz(matrix_or_vector: np.ndarray) -> np.ndarray:
-    return np.array([
-            [0.0, 0.0, 1.0],  # Z -> X
-            [1.0, 0.0, 0.0],  # X -> Y
-            [0.0, 1.0, 0.0]   # Y -> Z
-        ]).dot(matrix_or_vector)
+    if len(matrix_or_vector) > 3:
+        return np.array([
+                [0.0, 0.0, 1.0, 0.0],  # Z -> X
+                [1.0, 0.0, 0.0, 0.0],  # X -> Y
+                [0.0, 1.0, 0.0, 0.0],  # Y -> Z
+                [0.0, 0.0, 0.0, 1.0]   # Pos
+            ]).dot(matrix_or_vector)
+    else:
+        return np.array([
+                    [0.0, 0.0, 1.0],  # Z -> X
+                    [1.0, 0.0, 0.0],  # X -> Y
+                    [0.0, 1.0, 0.0],  # Y -> Z
+                ]).dot(matrix_or_vector)
 
 
 def xyz_to_zxy(matrix_or_vector: np.ndarray) -> np.ndarray:
-    return list(np.array([
+    if len(matrix_or_vector) > 3:
+        return list(np.array([
+                [0.0, 1.0, 0.0, 0.0],  # X -> Z
+                [0.0, 0.0, 1.0, 0.0],  # Y -> Y
+                [1.0, 0.0, 0.0, 0.0]   # Z -> Z
+                [0.0, 0.0, 0.0, 1.0]   # Pos
+            ]).dot(matrix_or_vector))
+    else:
+        return np.array([
             [0.0, 1.0, 0.0],  # X -> Z
             [0.0, 0.0, 1.0],  # Y -> Y
             [1.0, 0.0, 0.0]   # Z -> Z
-        ]).dot(matrix_or_vector))
+        ]).dot(matrix_or_vector)
 
 
 def construct_transformation_matrix(

@@ -65,7 +65,7 @@ def read_bwm_data(context, filepath: str):
             for i_bone, bone in enumerate(bwm.bones):
                 empty_bone = bpy.data.objects.new(str(i_bone), None)
                 empty_bone.matrix_world = construct_transformation_matrix(
-                    bone, lambda x: x
+                    bone, zxy_to_xyz
                 )
 
                 empty_bone.empty_display_size = draw_size
@@ -81,7 +81,7 @@ def read_bwm_data(context, filepath: str):
             for entity in bwm.entities:
                 empty_entity = bpy.data.objects.new(entity.name, None)
                 empty_entity.matrix_world = construct_transformation_matrix(
-                    entity, lambda x: x
+                    entity, zxy_to_xyz
                 )
 
                 empty_entity.empty_display_size = draw_size
@@ -91,23 +91,25 @@ def read_bwm_data(context, filepath: str):
 
             col.children.link(n_col)
 
-        unknowns = [unknown.unknown for unknown in bwm.unknowns1]
+        unknowns = [zxy_to_xyz(unknown.unknown) for unknown in bwm.unknowns1]
         if unknowns:
             mesh = bpy.data.meshes.new("Unknowns")
             obj = bpy.data.objects.new(mesh.name, mesh)
             mesh.from_pydata(unknowns, [], [])
+
             n_col = bpy.data.collections.new("unknowns")
             n_col.objects.link(obj)
             col.children.link(n_col)
 
         collision = [
-            collisionPoint.position
+            zxy_to_xyz(collisionPoint.position)
             for collisionPoint in bwm.collisionPoints
         ]
         if collision:
             mesh = bpy.data.meshes.new("Collision")
             obj = bpy.data.objects.new(mesh.name, mesh)
             mesh.from_pydata(collision, [], [])
+
             n_col = bpy.data.collections.new("collision")
             n_col.objects.link(obj)
             col.children.link(n_col)

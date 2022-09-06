@@ -7,8 +7,7 @@ from ..operator_utilities.file_definition_bwm import (
 )
 from ..operator_utilities.vector_utils import (
     correct_uv,
-    zxy_to_xyz,
-    construct_transformation_matrix
+    zxy_to_xyz
 )
 
 
@@ -121,8 +120,8 @@ def bpy_mesh_from_definition(
         indicies_offset:indicies_size + indicies_offset
         ]
     mesh_vertices = bwm.vertices[vertex_offset:vertex_size + vertex_offset]
-    vertices_positions = [vertex.position for vertex in mesh_vertices]
-    mesh_normals = [vertex.normal for vertex in mesh_vertices]
+    vertices_positions = [zxy_to_xyz(vertex.position) for vertex in mesh_vertices]
+    mesh_normals = [zxy_to_xyz(vertex.normal) for vertex in mesh_vertices]
 
     if file_type == FileType.MODEL:
         mesh_faces = [

@@ -1,13 +1,20 @@
 import bpy
 
-from ..operator_utilities.file_definition_bwm import BWMFile
+from .operator_export_material import description_from_material
+
+from ..operator_utilities.file_definition_bwm import BWMFile, FileType
 from .operator_export_mesh import organise_mesh_data
 from .operator_export_stride import create_vertex_stride
 
 
 def organize_bwm_data(settings, collection: bpy.types.Collection) -> BWMFile:
-    # collection = settings["selected_collection"]
     file = BWMFile()
+
+    file.materialDefinitions = [
+        description_from_material(material)
+        for material in bpy.data.materials
+    ]
+    file.modelHeader.materialDefinitionCount = len(file.materialDefinitions)
 
     meshes = collection.children.get('mesh')
     file = organise_mesh_data(meshes, file)
@@ -18,11 +25,13 @@ def organize_bwm_data(settings, collection: bpy.types.Collection) -> BWMFile:
     file.modelHeader.box1 = file.meshDescriptions[0].box1
     file.modelHeader.box2 = file.meshDescriptions[0].box2
     file.modelHeader.cent = file.meshDescriptions[0].cent
+    file.modelHeader.pnt = file.modelHeader.box2
     file.modelHeader.volume = file.meshDescriptions[0].bbox_volume
     file.modelHeader.height = file.meshDescriptions[0].height
     file.modelHeader.radius = file.meshDescriptions[0].radius
 
     if settings["type"] == 'OPT_MODEL' or settings["experimental"]:
+        file.modelHeader.type = FileType.MODEL
         # collision = collection.children.get("collision")
         # if collision:
         #     for obj in collision.objects.values():
@@ -38,9 +47,11 @@ def organize_bwm_data(settings, collection: bpy.types.Collection) -> BWMFile:
         pass
 
     if settings["type"] == 'OPT_SKIN' or settings["experimental"]:
+        file.modelHeader.type = FileType.SKIN
         pass
 
     if settings["version"] == 'OPT_SIX':
+        file.fileHeader.version = 6
         pass
 
     file.fileHeader.size = file.size()
