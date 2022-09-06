@@ -169,27 +169,3 @@ def organise_index_data(
         mesh_description.indiciesSize = len(indexes)
 
     return indexes
-
-
-"""def organise_uv_data(
-    vertices: List[Vertex],
-    mesh: bpy.types.Mesh,
-    uv_layers: List[bpy.types.MeshUVLoopLayer]
-) -> None:
-
-    faces_seq = mesh.polygons
-
-    for face in faces_seq:
-        for i in face.loop_indices:
-            for uv_layer in uv_layers:
-                if UVType(0).name in uv_layer.name:
-                    uv_idx = 0
-                elif UVType(1).name in uv_layer.name:
-                    uv_idx = 1
-                elif UVType(2).name in uv_layer.name:
-                    uv_idx = 2
-                else:
-                    continue
-                lk_idx = mesh.loops[i].vertex_index
-                uv_coord = correct_uv(uv_layer.data[i].uv)
-                vertices[lk_idx].uvs.insert(uv_idx, uv_coord)"""
