@@ -85,6 +85,9 @@ def organise_mesh_data(
                         mat_ref.vertexSize = len(vertices_add)
                         mesh_desc.materialRefs.append(mat_ref)
 
+                        if m_type == FileType.SKIN:
+                            mat_ref.indiciesSize -= 2
+
                         face_offset += mat_ref.facesSize
                         indicies_offset += mat_ref.indiciesSize
                         vertex_offset += mat_ref.vertexSize
@@ -187,14 +190,23 @@ def organise_index_data(
     Take the mesh faces and make an array of indexes from them
     """
 
-    faces = [[index for index in face.vertices] for face in faces_seq]
-
     if m_type == FileType.SKIN:
-        indexes = [
-            index for i in range(len(faces)) for index in faces[i] if i % 4 == 0
+        faces = [
+            list(faces_seq[i].vertices)
+            if i % 2 == 0
+            else [
+                faces_seq[i].vertices[1],
+                faces_seq[i].vertices[0],
+                faces_seq[i].vertices[2],
+            ]
+            for i in range(len(faces_seq))
         ]
+        indexes = faces[0][0:2]
+        indexes.extend([face[2] for face in faces[:-1]])
+        indexes.extend(faces[-1])
 
     elif m_type == FileType.MODEL:
+        faces = [[index for index in face.vertices] for face in faces_seq]
         indexes = [index for i in range(len(faces)) for index in faces[i]]
 
     indexes = [d_indexes[i] + vertex_offset for i in indexes]
