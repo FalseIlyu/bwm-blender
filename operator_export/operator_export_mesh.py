@@ -38,7 +38,6 @@ def organise_mesh_data(
 
                     mesh_desc.indiciesOffset = len(bwm_data.indexes)
                     mesh_desc.vertexOffset = len(bwm_data.vertices)
-                    mesh_desc.facesCount = len(obj.data.polygons)
                     vertex_offset = mesh_desc.vertexOffset
                     indicies_offset = mesh_desc.indiciesOffset
                     # Group polygons by materials.
@@ -86,6 +85,7 @@ def organise_mesh_data(
                         face_offset += mat_ref.facesSize
                         indicies_offset += mat_ref.indiciesSize
                         vertex_offset += mat_ref.vertexSize
+                        mesh_desc.facesCount += mat_ref.facesSize
 
                     mesh_desc.indiciesSize = indicies_offset
                     mesh_desc.indiciesSize -= mesh_desc.indiciesOffset

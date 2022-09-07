@@ -29,7 +29,7 @@ def xyz_to_zxy(matrix_or_vector: np.ndarray) -> np.ndarray:
         return list(np.array([
                 [0.0, 1.0, 0.0, 0.0],  # X -> Z
                 [0.0, 0.0, 1.0, 0.0],  # Y -> Y
-                [1.0, 0.0, 0.0, 0.0]   # Z -> Z
+                [1.0, 0.0, 0.0, 0.0],  # Z -> Z
                 [0.0, 0.0, 0.0, 1.0]   # Pos
             ]).dot(matrix_or_vector))
     else:
