@@ -1,4 +1,8 @@
-# <pep8-80 compliant>
+"""
+Main module contains only the function to transform a blender collection into
+a .bwm file
+"""
+# coding=utf-8
 import numpy as np
 import bpy
 
@@ -6,29 +10,37 @@ from ..operator_utilities.vector_utils import xyz_to_zxy
 
 from .operator_export_material import description_from_material
 
-from ..operator_utilities.file_definition_bwm import BWMFile, Bone, CollisionPoint, FileType
+from ..operator_utilities.file_definition_bwm import (
+    BWMFile,
+    Bone,
+    CollisionPoint,
+    FileType,
+)
 from .operator_export_mesh import organise_mesh_data
 from .operator_export_stride import create_vertex_stride
 
 
 def organize_bwm_data(settings, collection: bpy.types.Collection) -> BWMFile:
+    """
+    Organize a valid blender collection into a format that can be written
+    into a .bwm file
+    """
     file = BWMFile()
 
     file.materialDefinitions = [
-        description_from_material(material)
-        for material in bpy.data.materials
+        description_from_material(material) for material in bpy.data.materials
     ]
     file.modelHeader.materialDefinitionCount = len(file.materialDefinitions)
 
-    if settings["version"] == 'OPT_SIX':
+    if settings["version"] == "OPT_SIX":
         file.fileHeader.version = 6
 
-    if settings["type"] == 'OPT_SKIN' or settings["experimental"]:
+    if settings["type"] == "OPT_SKIN" or settings["experimental"]:
         file.modelHeader.type = FileType.SKIN
 
-        bone_collection = collection.children.get('bones')
+        bone_collection = collection.children.get("bones")
         for _, obj in bone_collection.objects.values():
-            if obj.type == 'EMPTY':
+            if obj.type == "EMPTY":
                 index = int(obj.name)
                 transformation_matrix = np.transpose(obj.matrix_world)
                 transformation_matrix = xyz_to_zxy(transformation_matrix)
@@ -40,14 +52,13 @@ def organize_bwm_data(settings, collection: bpy.types.Collection) -> BWMFile:
                 file.bones.insert(index, bone)
         file.modelHeader.boneCount = len(file.bones)
 
-
-    if settings["type"] == 'OPT_MODEL' or settings["experimental"]:
+    if settings["type"] == "OPT_MODEL" or settings["experimental"]:
         file.modelHeader.type = FileType.MODEL
 
         collision = collection.children.get("collision")
         if collision:
             for obj in collision.objects.values():
-                if obj.type == 'MESH':
+                if obj.type == "MESH":
                     obj = obj.to_mesh()
                     for point in obj.vertices.values():
                         col_point = CollisionPoint()
@@ -55,7 +66,7 @@ def organize_bwm_data(settings, collection: bpy.types.Collection) -> BWMFile:
                         file.collisionPoints.append(col_point)
         file.modelHeader.collisionPointCount = len(file.collisionPoints)
 
-    meshes = collection.children.get('mesh')
+    meshes = collection.children.get("mesh")
     file = organise_mesh_data(meshes, file)
     file.modelHeader.meshDescriptionCount = len(file.meshDescriptions)
     file.modelHeader.indexCount = len(file.indexes)

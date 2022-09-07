@@ -1,13 +1,19 @@
-from numpy import byte
+"""
+Module charged with the handling of Strides
+"""
+# coding=utf-8
 from ..operator_utilities.file_definition_bwm import (
     StrideType,
     StrideSize,
     Vertex,
-    Stride
+    Stride,
 )
 
 
 def create_vertex_stride(vertex: Vertex) -> Stride:
+    """
+    From a vertex create the corresponding Stride
+    """
     stride = Stride()
 
     stride.idSizes.append((StrideType.POINT, StrideSize.POINT_3D))
@@ -27,6 +33,9 @@ def create_vertex_stride(vertex: Vertex) -> Stride:
 
 
 def create_skin_strides() -> Stride:
+    """
+    Create the strides deffining a Bone/Weight table of a Skin
+    """
     strides = [Stride() for i in range(8)]
 
     for stride in strides[:4]:

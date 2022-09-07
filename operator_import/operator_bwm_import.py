@@ -1,4 +1,8 @@
-# <pep8-80 compliant>
+"""
+Main module for the import plugin handle necessary code for its registration
+in blender and the UI.
+"""
+# coding=utf-8
 from bpy.types import Operator
 from bpy.props import StringProperty
 from bpy_extras.io_utils import ImportHelper
@@ -12,6 +16,7 @@ from .operator_import_file import read_bwm_data
 
 class ImportBWMData(Operator, ImportHelper):
     """This appears in the tooltip of the operator and in the generated docs"""
+
     bl_idname = "import_test.bwm_data"
     # important since its how bpy.ops.import_test.some_data is constructed
     bl_label = "Import .bwm file"
@@ -21,7 +26,7 @@ class ImportBWMData(Operator, ImportHelper):
 
     filter_glob: StringProperty(
         default="*.bwm",
-        options={'HIDDEN'},
+        options={"HIDDEN"},
         maxlen=255,  # Max internal buffer length, longer would be clamped.
     )
 
@@ -32,8 +37,7 @@ class ImportBWMData(Operator, ImportHelper):
 # Only needed if you want to add into a dynamic menu
 def menu_func_import(self, context):
     self.layout.operator(
-        ImportBWMData.bl_idname,
-        text="Black & White Model (.bwm)"
+        ImportBWMData.bl_idname, text="Black & White Model (.bwm)"
     )
 
 

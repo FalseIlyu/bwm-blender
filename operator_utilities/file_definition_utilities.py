@@ -1,4 +1,3 @@
-# <pep8-80 compliant>
 # coding=utf-8
 """Module containing function generally usefull to parsing binary files"""
 from io import BufferedReader, BufferedWriter
@@ -7,8 +6,8 @@ import struct
 
 
 def read_bool(reader: BufferedReader) -> bool:
-    """ Return the nex byte in a file in a boolean"""
-    return bool(int.from_bytes(reader.read(1), 'little'))
+    """Return the nex byte in a file in a boolean"""
+    return bool(int.from_bytes(reader.read(1), "little"))
 
 
 def read_float(reader: BufferedReader) -> float:
@@ -35,7 +34,7 @@ def read_str(reader: BufferedReader, size: int) -> str:
 
 
 def write_bool(writer: BufferedWriter, bool: bool) -> None:
-    """ Return the nex byte in a file in a boolean"""
+    """Return the nex byte in a file in a boolean"""
     writer.write(bool.to_bytes(1, byteorder="little", signed=False))
 
 
@@ -44,19 +43,11 @@ def write_float(writer: BufferedWriter, float: float) -> None:
     writer.write(struct.pack("<f", float))
 
 
-def write_int16(
-    writer: BufferedWriter,
-    int: int,
-    signed: bool = False
-) -> None:
+def write_int16(writer: BufferedWriter, int: int, signed: bool = False) -> None:
     writer.write(int.to_bytes(2, byteorder="little", signed=signed))
 
 
-def write_int32(
-    writer: BufferedWriter,
-    int: int,
-    signed: bool = False
-) -> None:
+def write_int32(writer: BufferedWriter, int: int, signed: bool = False) -> None:
     writer.write(int.to_bytes(4, byteorder="little", signed=signed))
 
 

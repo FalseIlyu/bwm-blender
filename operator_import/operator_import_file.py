@@ -1,4 +1,8 @@
-# <pep8-80 compliant>
+"""
+Main module contains only the function to transform data from a .bwm file into
+a Blender collection
+"""
+# coding=utf-8
 from os import path
 import bpy
 
@@ -10,13 +14,16 @@ from .operator_import_material import bpy_material_from_definition
 from .operator_import_mesh import bpy_obj_from_defintion
 from ..operator_utilities.vector_utils import (
     zxy_to_xyz,
-    construct_transformation_matrix
+    construct_transformation_matrix,
 )
 
 
 def read_bwm_data(context, filepath: str):
+    """
+    Organize data from a .bwm file inside a Blender collection
+    """
     print("Reading data from Black & White Model file")
-    with open(filepath, 'rb') as file:
+    with open(filepath, "rb") as file:
         bwm = BWMFile(file)
         uvs_count = len(bwm.vertices[0].uvs)
 
@@ -28,14 +35,16 @@ def read_bwm_data(context, filepath: str):
         if not (type == FileType.SKIN or type == FileType.MODEL):
             raise ValueError("Not a supported type")
 
-        list_materials, list_uv_nodes = zip(*[
-            bpy_material_from_definition(
-                material_definition,
-                path.join(path.dirname(filepath), "..\\textures"),
-                uvs_count
-            )
-            for material_definition in bwm.materialDefinitions
-        ])
+        list_materials, list_uv_nodes = zip(
+            *[
+                bpy_material_from_definition(
+                    material_definition,
+                    path.join(path.dirname(filepath), "..\\textures"),
+                    uvs_count,
+                )
+                for material_definition in bwm.materialDefinitions
+            ]
+        )
 
         mesh_col = bpy.data.collections.new("mesh")
         col.children.link(mesh_col)
@@ -43,11 +52,7 @@ def read_bwm_data(context, filepath: str):
 
         for mesh_description in bwm.meshDescriptions:
             obj = bpy_obj_from_defintion(
-                mesh_description,
-                bwm,
-                list_materials,
-                list_uv_nodes,
-                bwm_name
+                mesh_description, bwm, list_materials, list_uv_nodes, bwm_name
             )
 
             lods[mesh_description.lod_level - 1].append(obj)
@@ -116,4 +121,4 @@ def read_bwm_data(context, filepath: str):
 
         bpy.context.scene.collection.children.link(col)
 
-    return {'FINISHED'}
+    return {"FINISHED"}
