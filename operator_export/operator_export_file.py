@@ -39,7 +39,7 @@ def organize_bwm_data(settings, collection: bpy.types.Collection) -> BWMFile:
         file.modelHeader.type = FileType.SKIN
 
         bone_collection = collection.children.get("bones")
-        for _, obj in bone_collection.objects.values():
+        for obj in bone_collection.objects.values():
             if obj.type == "EMPTY":
                 index = int(obj.name)
                 transformation_matrix = np.transpose(obj.matrix_world)
