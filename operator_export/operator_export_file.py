@@ -26,6 +26,21 @@ def organize_bwm_data(settings, collection: bpy.types.Collection) -> BWMFile:
     if settings["type"] == 'OPT_SKIN' or settings["experimental"]:
         file.modelHeader.type = FileType.SKIN
 
+        bone_collection = collection.children.get('bones')
+        for _, obj in bone_collection.objects.values():
+            if obj.type == 'EMPTY':
+                index = int(obj.name)
+                transformation_matrix = np.transpose(obj.matrix_world)
+                transformation_matrix = xyz_to_zxy(transformation_matrix)
+                bone = Bone()
+                bone.xaxis = transformation_matrix[0][:3]
+                bone.yaxis = transformation_matrix[1][:3]
+                bone.zaxis = transformation_matrix[2][:3]
+                bone.position = transformation_matrix[3][:3]
+                file.bones.insert(index, bone)
+        file.modelHeader.boneCount = len(file.bones)
+
+
     if settings["type"] == 'OPT_MODEL' or settings["experimental"]:
         file.modelHeader.type = FileType.MODEL
 
