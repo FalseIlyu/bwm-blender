@@ -14,6 +14,7 @@ from ..operator_utilities.file_definition_bwm import (
     BWMFile,
     Bone,
     CollisionPoint,
+    Entity,
     FileType,
 )
 from .operator_export_mesh import organise_mesh_data
@@ -39,21 +40,35 @@ def organize_bwm_data(settings, collection: bpy.types.Collection) -> BWMFile:
         file.modelHeader.type = FileType.SKIN
 
         bone_collection = collection.children.get("bones")
-        for obj in bone_collection.objects.values():
-            if obj.type == "EMPTY":
-                index = int(obj.name)
-                transformation_matrix = np.transpose(obj.matrix_world)
-                transformation_matrix = xyz_to_zxy(transformation_matrix)
-                bone = Bone()
-                bone.xaxis = transformation_matrix[0][:3]
-                bone.yaxis = transformation_matrix[1][:3]
-                bone.zaxis = transformation_matrix[2][:3]
-                bone.position = transformation_matrix[3][:3]
-                file.bones.insert(index, bone)
-        file.modelHeader.boneCount = len(file.bones)
+        if bone_collection:
+            for obj in bone_collection.objects.values():
+                if obj.type == "EMPTY":
+                    index = int(obj.name)
+                    rotation = xyz_to_zxy(np.array(obj.matrix_world)[:3, :3])
+                    bone = Bone()
+                    bone.zaxis = rotation[0]
+                    bone.yaxis = rotation[2]
+                    bone.xaxis = rotation[1]
+                    bone.position = xyz_to_zxy(obj.location)
+                    file.bones.insert(index, bone)
+            file.modelHeader.boneCount = len(file.bones)
 
     if settings["type"] == "OPT_MODEL" or settings["experimental"]:
         file.modelHeader.type = FileType.MODEL
+
+        entity_collection = collection.children.get("entities")
+        if entity_collection:
+            for obj in entity_collection.objects.values():
+                if obj.type == "EMPTY":
+                    rotation = xyz_to_zxy(np.array(obj.matrix_world)[:3, :3])
+                    entity = Entity()
+                    entity.zaxis = rotation[0]
+                    entity.yaxis = rotation[2]
+                    entity.xaxis = rotation[1]
+                    entity.position = xyz_to_zxy(obj.location)
+                    entity.name = obj.name.split(".")[0]
+                    file.entities.append(entity)
+            file.modelHeader.entityCount = len(file.entities)
 
         collision = collection.children.get("collision")
         if collision:

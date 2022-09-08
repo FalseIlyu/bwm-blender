@@ -8,6 +8,7 @@ from typing import Dict, List, Tuple
 import math
 from statistics import mean
 
+import numpy as np
 import bpy
 import bmesh
 
@@ -117,11 +118,12 @@ def create_basic_description(
     if lod > 1:
         mesh_desc.unknown_int = 1
     mesh_desc.name = obj.name.split(".")[0]
-    rotation = xyz_to_zxy([vector[:3] for vector in obj.matrix_world[:3]])
-    mesh_desc.zaxis = rotation[0]
+    rotation = np.transpose(obj.matrix_world)
+    rotation = xyz_to_zxy(rotation[:3, :3])
+    mesh_desc.zaxis = rotation[2]
     mesh_desc.yaxis = rotation[1]
-    mesh_desc.xaxis = rotation[2]
-    mesh_desc.position = obj.location
+    mesh_desc.xaxis = rotation[0]
+    mesh_desc.position = xyz_to_zxy(obj.location)
 
     # Organise mesh description metadata
     obj = obj.to_mesh(preserve_all_data_layers=True)
@@ -221,13 +223,13 @@ def create_bounds(
     """
     num_vertex = len(vertices)
     mesh_desc.vertexSize = num_vertex
-    loc_list = [tuple(xyz_to_zxy(vertex.co)) for vertex in vertices]
-    x = [loc[0] for loc in loc_list]
-    y = [loc[1] for loc in loc_list]
-    z = [loc[2] for loc in loc_list]
-    mesh_desc.cent = (mean(x), mean(y), mean(z))
-    mesh_desc.box1 = (min(x), min(y), min(z))
-    mesh_desc.box2 = (max(x), max(y), max(z))
-    mesh_desc.radius = max([math.dist(loc, mesh_desc.cent) for loc in loc_list])
+    list_loc = [tuple(xyz_to_zxy(vertex.co)) for vertex in vertices]
+    list_x = [loc[0] for loc in list_loc]
+    list_y = [loc[1] for loc in list_loc]
+    list_z = [loc[2] for loc in list_loc]
+    mesh_desc.cent = (mean(list_x), mean(list_y), mean(list_z))
+    mesh_desc.box1 = (min(list_x), min(list_y), min(list_z))
+    mesh_desc.box2 = (max(list_x), max(list_y), max(list_z))
+    mesh_desc.radius = max([math.dist(loc, mesh_desc.cent) for loc in list_loc])
     mesh_desc.unknowns1 = mesh_desc.box2
     mesh_desc.height = mesh_desc.box2[1]
