@@ -31,7 +31,7 @@ def bpy_obj_from_defintion(
     obj, mesh = bpy_mesh_from_definition(mesh_description, bwm)
 
     uv_layers = setup_mesh_uvlayers(
-        obj, mesh, mesh_description.vertexOffset, bwm_name, bwm
+        mesh, mesh_description.vertexOffset, bwm_name, bwm
     )
 
     apply_material_to_mesh(
@@ -47,7 +47,6 @@ def bpy_obj_from_defintion(
 
 
 def setup_mesh_uvlayers(
-    obj: bpy.types.Object,
     mesh: bpy.types.Mesh,
     vertex_offset: int,
     bwm_name: str,
@@ -67,7 +66,7 @@ def setup_mesh_uvlayers(
         for i in range(uvs_count)
     ]
     for i, uv_layer in enumerate(uv_layers):
-        for faces in obj.data.polygons:
+        for faces in mesh.polygons.values():
             for faces_vertex_index, loop_index in zip(
                 faces.vertices, faces.loop_indices
             ):
@@ -81,7 +80,7 @@ def apply_material_to_mesh(
     obj: bpy.types.Object,
     mesh: bpy.types.Mesh,
     uv_layers: List[bpy.types.MeshUVLoopLayer],
-    material_reference: List[MaterialRef],
+    material_references: List[MaterialRef],
     list_materials: List[bpy.types.Material],
     list_uv_nodes: List[bpy.types.NodeInputs],
 ) -> None:
@@ -89,7 +88,7 @@ def apply_material_to_mesh(
     Apply the Materials to the mesh
     """
     # Set up materials
-    for material_reference in material_reference:
+    for material_reference in material_references:
         material_definiton = material_reference.materialDefinition
         current_material = list_materials[material_definiton]
         obj.data.materials.append(current_material)

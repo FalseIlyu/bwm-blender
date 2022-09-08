@@ -14,19 +14,11 @@ from ..operator_utilities.file_definition_bwm import (
 
 def zxy_to_xyz(matrix_or_vector: np.ndarray) -> np.ndarray:
     """
-    Rotate a vector or a matrix (transformation or rotation) defined in zxy
+    Rotate a vector or a rotation matrix defined in zxy
     coordinate to an xyz one.
     """
-    if len(matrix_or_vector) > 3:
-        return np.matmul(
-            [
-                [0.0, 0.0, 1.0, 0.0],  # Z -> X
-                [1.0, 0.0, 0.0, 0.0],  # X -> Y
-                [0.0, 1.0, 0.0, 0.0],  # Y -> Z
-                [0.0, 0.0, 0.0, 1.0],  # Pos
-            ],
-            matrix_or_vector,
-        )
+    if len(matrix_or_vector) != 3:
+        raise ValueError("Must be a vector of size 3 or a 3x3 matrix")
 
     return np.matmul(
         [
@@ -40,19 +32,11 @@ def zxy_to_xyz(matrix_or_vector: np.ndarray) -> np.ndarray:
 
 def xyz_to_zxy(matrix_or_vector: np.ndarray) -> np.ndarray:
     """
-    Rotate a vector or a matrix (transformation or rotation) defined in xyz
+    Rotate a vector or a rotation matrix defined in xyz
     coordinate to an zxy one.
     """
-    if len(matrix_or_vector) > 3:
-        return np.matmul(
-            [
-                [0.0, 1.0, 0.0, 0.0],  # X -> Z
-                [0.0, 0.0, 1.0, 0.0],  # Y -> X
-                [1.0, 0.0, 0.0, 0.0],  # Z -> Y
-                [0.0, 0.0, 0.0, 1.0],  # Pos
-            ],
-            matrix_or_vector,
-        )
+    if len(matrix_or_vector) != 3:
+        raise ValueError("Must be a vector of size 3 or a 3x3 matrix")
 
     return np.matmul(
         [
@@ -78,10 +62,10 @@ def construct_transformation_matrix(
     point = coordinate_rotation(bwm_entity.position)
 
     return [
-        [rotation[i][0] if i < 3 else 0.0 for i in range(4)],
-        [rotation[i][1] if i < 3 else 0.0 for i in range(4)],
-        [rotation[i][2] if i < 3 else 0.0 for i in range(4)],
-        [point[i] if i < 3 else 1.0 for i in range(4)],
+        list(rotation[:, 0]) + [0.0],
+        list(rotation[:, 1]) + [0.0],
+        list(rotation[:, 2]) + [0.0],
+        list(point) + [1.0],
     ]
 
 
