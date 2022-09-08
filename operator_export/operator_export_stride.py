@@ -45,11 +45,11 @@ def create_skin_strides() -> Stride:
         stride.size = 0x7C
         stride.unknown = bytes([0 for i in range(stride.size)])
 
-    for stride in strides[5:]:
+    for stride in strides[4:]:
         stride.count = 1
         stride.idSizes.append((StrideType.BONE_WEIGHT, StrideSize.FLOAT))
         stride.stride = 4
-        stride.stride = 0x7C
+        stride.size = 0x7C
         stride.unknown = bytes([0 for i in range(stride.size)])
 
     return strides

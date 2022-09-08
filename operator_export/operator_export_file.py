@@ -9,6 +9,7 @@ import bpy
 from ..operator_utilities.vector_utils import xyz_to_zxy
 
 from .operator_export_material import description_from_material
+from .operator_export_rigging import create_bone_weigth_table
 
 from ..operator_utilities.file_definition_bwm import (
     BWMFile,
@@ -18,7 +19,7 @@ from ..operator_utilities.file_definition_bwm import (
     FileType,
 )
 from .operator_export_mesh import organise_mesh_data
-from .operator_export_stride import create_vertex_stride
+from .operator_export_stride import create_skin_strides, create_vertex_stride
 
 
 def organize_bwm_data(settings, collection: bpy.types.Collection) -> BWMFile:
@@ -51,7 +52,8 @@ def organize_bwm_data(settings, collection: bpy.types.Collection) -> BWMFile:
                     bone.xaxis = rotation[1]
                     bone.position = xyz_to_zxy(obj.location)
                     file.bones.insert(index, bone)
-            file.modelHeader.boneCount = len(file.bones)
+
+        skin_strides = create_skin_strides()
 
     if settings["type"] == "OPT_MODEL" or settings["experimental"]:
         file.modelHeader.type = FileType.MODEL
@@ -68,7 +70,6 @@ def organize_bwm_data(settings, collection: bpy.types.Collection) -> BWMFile:
                     entity.position = xyz_to_zxy(obj.location)
                     entity.name = obj.name.split(".")[0]
                     file.entities.append(entity)
-            file.modelHeader.entityCount = len(file.entities)
 
         collision = collection.children.get("collision")
         if collision:
@@ -79,13 +80,9 @@ def organize_bwm_data(settings, collection: bpy.types.Collection) -> BWMFile:
                         col_point = CollisionPoint()
                         col_point.position = xyz_to_zxy(point.co)
                         file.collisionPoints.append(col_point)
-        file.modelHeader.collisionPointCount = len(file.collisionPoints)
 
     meshes = collection.children.get("mesh")
     file = organise_mesh_data(meshes, file)
-    file.modelHeader.meshDescriptionCount = len(file.meshDescriptions)
-    file.modelHeader.indexCount = len(file.indexes)
-    file.modelHeader.vertexCount = len(file.vertices)
     file.strides[0] = create_vertex_stride(file.vertices[0])
     file.modelHeader.box1 = file.meshDescriptions[0].box1
     file.modelHeader.box2 = file.meshDescriptions[0].box2
@@ -94,6 +91,22 @@ def organize_bwm_data(settings, collection: bpy.types.Collection) -> BWMFile:
     file.modelHeader.volume = file.meshDescriptions[0].bbox_volume
     file.modelHeader.height = file.meshDescriptions[0].height
     file.modelHeader.radius = file.meshDescriptions[0].radius
+
+    if file.modelHeader.type == FileType.SKIN or settings["experimental"]:
+        if file.bones:
+            file.strides.extend(skin_strides)
+            file.data = create_bone_weigth_table(file)
+
+    file.modelHeader.meshDescriptionCount = len(file.meshDescriptions)
+    file.modelHeader.indexCount = len(file.indexes)
+    file.modelHeader.vertexCount = len(file.vertices)
+    file.modelHeader.strideCount = len(file.strides)
+    file.modelHeader.boneCount = len(file.bones)
+    file.modelHeader.entityCount = len(file.entities)
+    file.modelHeader.collisionPointCount = len(file.collisionPoints)
+    file.modelHeader.unknownCount1 = len(file.unknowns1)
+    if file.fileHeader.version > 5:
+        file.modelHeader.modelCleaveCount = len(file.modelCleaves)
 
     file.fileHeader.size = file.size()
     file.fileHeader.metadataSize = file.metadataSize()
