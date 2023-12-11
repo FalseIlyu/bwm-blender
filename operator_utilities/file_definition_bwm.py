@@ -1,7 +1,6 @@
 # coding=utf-8
 """ Structures of a .bwm with associated IO """
 from io import BufferedReader, BufferedWriter
-from colorama import Fore, Style
 from typing import List
 from glob import glob
 from enum import Enum
@@ -11,6 +10,7 @@ if __name__ != "__main__":
     from .file_definition_utilities import *
 else:
     from file_definition_utilities import *
+    from colorama import Fore, Style
     import filecmp
     import json
     import os
@@ -56,38 +56,38 @@ class BWMFile:
         self.modelHeader = LionheadModelHeader(reader)
         self.materialDefinitions = [
             MaterialDefinition(reader)
-            for i in range(self.modelHeader.materialDefinitionCount)
+            for _ in range(self.modelHeader.materialDefinitionCount)
         ]
         self.meshDescriptions = [
             MeshDescription(reader)
-            for i in range(self.modelHeader.meshDescriptionCount)
+            for _ in range(self.modelHeader.meshDescriptionCount)
         ]
         for mesh in self.meshDescriptions:
             mesh.materialRefs = [
-                MaterialRef(reader) for i in range(mesh.materialRefsCount)
+                MaterialRef(reader) for _ in range(mesh.materialRefsCount)
             ]
-        self.bones = [Bone(reader) for i in range(self.modelHeader.boneCount)]
+        self.bones = [Bone(reader, i) for i in range(self.modelHeader.boneCount)]
         self.entities = [
-            Entity(reader) for i in range(self.modelHeader.entityCount)
+            Entity(reader) for _ in range(self.modelHeader.entityCount)
         ]
         self.unknowns1 = [
-            Unknown1(reader) for i in range(self.modelHeader.unknownCount1)
+            Unknown1(reader) for _ in range(self.modelHeader.unknownCount1)
         ]
         self.collisionPoints = [
             CollisionPoint(reader)
-            for i in range(self.modelHeader.collisionPointCount)
+            for _ in range(self.modelHeader.collisionPointCount)
         ]
         self.strides = [
-            Stride(reader) for i in range(self.modelHeader.strideCount)
+            Stride(reader) for _ in range(self.modelHeader.strideCount)
         ]
         self.vertices = [
             Vertex(self.strides[0], reader)
-            for vertex in range(self.modelHeader.vertexCount)
+            for _ in range(self.modelHeader.vertexCount)
         ]
         self.data = [
             [
                 stride.read_data(reader)
-                for vertex in range(self.modelHeader.vertexCount)
+                for _ in range(self.modelHeader.vertexCount)
             ]
             for stride in self.strides[1:]
         ]
@@ -98,7 +98,7 @@ class BWMFile:
             self.modelHeader.modelCleaveCount = read_int32(reader)
             self.modelCleaves = [
                 (read_float(reader), read_float(reader), read_float(reader))
-                for i in range(self.modelHeader.modelCleaveCount)
+                for _ in range(self.modelHeader.modelCleaveCount)
             ]
 
         return
@@ -473,7 +473,7 @@ class Bone:
     '  Size    :   0x30
     """
 
-    def __init__(self, reader: BufferedReader = None):
+    def __init__(self, reader: BufferedReader = None, count: int = 0):
         if reader:
             self.zaxis = (
                 read_float(reader),
@@ -495,6 +495,7 @@ class Bone:
                 read_float(reader),
                 read_float(reader),
             )
+            self.name = str(count)
             return
 
     def write(self, writer: BufferedWriter = None):
@@ -555,13 +556,13 @@ class Unknown1:
 
     def __init__(self, reader: BufferedReader = None):
         if reader:
-            self.unknown = struct.unpack("<fff", reader.read(12))
+            self.position = struct.unpack("<fff", reader.read(12))
             return
         else:
-            self.unknown = (0.0, 0.0, 0.0)
+            self.position = (0.0, 0.0, 0.0)
 
     def write(self, writer: BufferedWriter = None):
-        write_vector(writer, self.unknown, write_float)
+        write_vector(writer, self.position, write_float)
 
 
 class CollisionPoint:

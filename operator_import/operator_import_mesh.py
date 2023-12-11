@@ -156,12 +156,13 @@ def bpy_mesh_from_definition(
         ]
 
     mesh = bpy.data.meshes.new(mesh_name)
+    mesh.validate(verbose=True)
     obj = bpy.data.objects.new(mesh_name, mesh)
     mesh.from_pydata(vertices_positions, [], mesh_faces)
 
     # Set up normals
-    for index, vertex in enumerate(mesh.vertices):
-        vertex.normal = mesh_normals[index]
-    mesh.create_normals_split()
+    # for index, vertex in enumerate(mesh.vertices):
+    #     vertex.normal = mesh_normals[index]
+    mesh.normals_split_custom_set_from_vertices(mesh_normals)
 
     return obj, mesh

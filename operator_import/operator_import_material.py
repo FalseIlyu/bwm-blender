@@ -26,11 +26,11 @@ def bpy_material_from_definition(
         material_definition.growthMap,
         material_definition.animatedTexture,
     ]
-    type = material_definition.type
+    texture_type = material_definition.type
 
-    material = bpy.data.materials.new(name=type)
+    material = bpy.data.materials.new(name=texture_type)
     material.use_nodes = True
-    if type == "_plants_" or type == "_yard_" or type == "_vines_":
+    if texture_type == "_plants_" or texture_type == "_yard_" or texture_type == "_vines_":
         material.blend_method = "BLEND"
     else:
         material.blend_method = "HASHED"
@@ -85,13 +85,13 @@ def bpy_material_from_definition(
                 texture = material_nodes.new("ShaderNodeTexImage")
                 texture.image = image
                 node_dict["texture"] = texture
-                for (input, output) in zip(inputs, outputs):
-                    n_input = node_dict[input[0]]
+                for (node_input, output) in zip(inputs, outputs):
+                    n_input = node_dict[node_input[0]]
                     n_output = node_dict[output[0]]
                     material_link.new(
-                        n_input.inputs[input[1]], n_output.outputs[output[1]]
+                        n_input.inputs[node_input[1]], n_output.outputs[output[1]]
                     )
         except RuntimeError:
-            logger.error(f"Could not find {file}", exc_info=True)
+            logger.error("Could not find %s", file, exc_info=True)
 
     return (material, uv_maps)
