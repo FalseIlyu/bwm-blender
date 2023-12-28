@@ -41,35 +41,24 @@ def bpy_material_from_definition(
     uv_maps = [material_nodes.new("ShaderNodeUVMap") for i in range(uvs_count)]
 
     BSDF = material_nodes["Principled BSDF"]
-    base_color_node = material_nodes.new("ShaderNodeMixRGB")
-    base_color_node.blend_type = "MULTIPLY"
-    base_color_node.inputs[1].default_value = (1.0, 1.0, 1.0, 1.0)
-    base_color_node.inputs[2].default_value = (1.0, 1.0, 1.0, 1.0)
-    material_link.new(BSDF.inputs[0], base_color_node.outputs[0])
 
     l_inputs = [
-        [
-            ("base_color_node", 1),
-            ("base_color_node", 0),
-            ("BSDF", 19),
-            ("texture", 0),
-        ],
-        [("BSDF", 5), ("BSDF", 6), ("texture", 0)],
-        [("base_color_node", 2), ("base_color_node", 0), ("texture", 0)],
+        [("BSDF", 0), ("BSDF", 19), ("BSDF", 21), ("texture", 0)],
+        [("BSDF", 8), ("BSDF", 7), ("texture", 0)],
         [("BSDF", 20), ("texture", 0)],
+        [("BSDF", 22), ("texture", 0)],
         [("texture", 0)],
         [("texture", 0)],
     ]
     l_outputs = [
-        [("texture", 0), ("texture", 1), ("texture", 1), ("uv_maps[0]", 0)],
-        [("texture", 0), ("texture", 1), ("uv_maps[0]", 0)],
-        [("texture", 0), ("texture", 1), ("uv_maps[1]", 0)],
+        [("texture", 0), ("texture", 0), ("texture", 1), ("uv_maps[0]", 0)],
+        [("texture", 0), ("texture", 0), ("uv_maps[0]", 0)],
+        [("texture", 0), ("uv_maps[1]", 0)],
         [("texture", 0), ("uv_maps[0]", 0)],
         [("uv_maps[0]", 0)],
         [("uv_maps[0]", 0)],
     ]
     node_dict = {
-        "base_color_node": base_color_node,
         "BSDF": BSDF,
         "texture": None,
     }

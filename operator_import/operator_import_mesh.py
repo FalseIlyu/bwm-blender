@@ -60,7 +60,7 @@ def setup_mesh_uvlayers(
         for i in range(uvs_count)
     ]
 
-    if (len(mesh.uv_layers) < uvs_count):
+    if len(mesh.uv_layers) < uvs_count:
         for i in range(uvs_count):
             mesh.uv_layers.new(name=f"{bwm_name}_{UVType(i).name}")
 
