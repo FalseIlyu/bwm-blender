@@ -42,22 +42,22 @@ def description_from_material(
     mat_desc.type = material.name.split(".")[0]
     if not material.node_tree:
         return mat_desc
-    mat_node = material.node_tree.nodes[0]
 
-    diffuse_node = get_next_node(mat_node, 0, 0)
+    material_node = material.node_tree.nodes[0]
+    diffuse_node = get_next_node(material_node, 0, 0)
     if diffuse_node:
-        if diffuse_node.bl_idname == "ShaderNodeMixRGB":
-            diffuse_node = get_next_node(diffuse_node, 1, 0)
-            if diffuse_node:
-                mat_desc.diffuseMap = get_texture_name(diffuse_node)
-        else:
-            mat_desc.diffuseMap = get_texture_name(diffuse_node)
+        mat_desc.diffuseMap = get_texture_name(diffuse_node)
 
-    lightmap_node = get_next_node(mat_node, 0, 0)
+    lightmap_node = get_next_node(material_node, 20, 0)
     if lightmap_node:
-        if lightmap_node.bl_idname == "ShaderNodeMixRGB":
-            lightmap_node = get_next_node(lightmap_node, 2, 0)
-            if lightmap_node:
-                mat_desc.lightMap = get_texture_name(lightmap_node)
+        mat_desc.lightMap = get_texture_name(lightmap_node)
+
+    specular_node = get_next_node(material_node, 8, 0)
+    if specular_node:
+        mat_desc.specularMap = get_texture_name(specular_node)
+
+    normal_node = get_next_node(material_node, 22, 0)
+    if normal_node:
+        mat_desc.normalMap = get_texture_name(normal_node)
 
     return mat_desc

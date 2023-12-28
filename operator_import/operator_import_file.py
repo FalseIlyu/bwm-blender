@@ -57,7 +57,7 @@ def collection_points(name: str, collection: List[Union[Unknown1, CollisionPoint
         obj = bpy.data.objects.new(mesh.name, mesh)
         mesh.from_pydata(data_col, [], [])
 
-        n_col = bpy.data.collections.new("name")
+        n_col = bpy.data.collections.new(name)
         n_col.objects.link(obj)
         col.children.link(n_col)
 
