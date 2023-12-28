@@ -19,14 +19,12 @@ def get_texture_name(texture_node: bpy.types.TextureNode) -> str:
 
 
 def get_next_node(
-    node: bpy.types.Node, node_input: int, link: int
+    node: bpy.types.Node, node_input: str, link: int
 ) -> Union[bpy.types.Node, None]:
     """
     Get node linked to a specific input
     """
-    if node_input + 1 > len(node.inputs):
-        return None
-    node_link = node.inputs[node_input].links
+    node_link = node.inputs.get(node_input).links
     if link + 1 > len(node_link):
         return None
     return node_link[link].from_socket.node
@@ -43,20 +41,20 @@ def description_from_material(
     if not material.node_tree:
         return mat_desc
 
-    material_node = material.node_tree.nodes[0]
-    diffuse_node = get_next_node(material_node, 0, 0)
+    material_node = material.node_tree.nodes.get("Principled BSDF")
+    diffuse_node = get_next_node(material_node, "Base Color", 0)
     if diffuse_node:
         mat_desc.diffuseMap = get_texture_name(diffuse_node)
 
-    lightmap_node = get_next_node(material_node, 20, 0)
+    lightmap_node = get_next_node(material_node, "Emission Strength", 0)
     if lightmap_node:
         mat_desc.lightMap = get_texture_name(lightmap_node)
 
-    specular_node = get_next_node(material_node, 8, 0)
+    specular_node = get_next_node(material_node, "Specular", 0)
     if specular_node:
         mat_desc.specularMap = get_texture_name(specular_node)
 
-    normal_node = get_next_node(material_node, 22, 0)
+    normal_node = get_next_node(material_node, "Normal", 0)
     if normal_node:
         mat_desc.normalMap = get_texture_name(normal_node)
 

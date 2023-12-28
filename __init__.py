@@ -9,7 +9,7 @@ from .operator_import import operator_bwm_import
 
 bl_info = {
     "name": "Black & White Model (.bwm) Format",
-    "blender": (3, 6, 0),
+    "blender": (2, 93, 0),
     "category": "Import-Export",
 }
 

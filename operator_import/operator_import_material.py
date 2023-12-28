@@ -4,7 +4,7 @@ Module charged with everything material related
 # coding=utf-8
 import logging
 from os import path
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 import bpy
 
 from ..operator_utilities.file_definition_bwm import MaterialDefinition
@@ -43,21 +43,22 @@ def bpy_material_from_definition(
     BSDF = material_nodes["Principled BSDF"]
 
     l_inputs = [
-        [("BSDF", 0), ("BSDF", 19), ("BSDF", 21), ("texture", 0)],
-        [("BSDF", 8), ("BSDF", 7), ("texture", 0)],
-        [("BSDF", 20), ("texture", 0)],
-        [("BSDF", 22), ("texture", 0)],
-        [("texture", 0)],
-        [("texture", 0)],
+        [("BSDF", "Base Color"), ("BSDF", "Emission"), ("BSDF", "Alpha"), ("texture", "Vector")],
+        [("BSDF", "Specular"), ("BSDF", "Specular Tint"), ("texture", "Vector")],
+        [("BSDF", "Emission Strength"), ("texture", "Vector")],
+        [("BSDF", "Normal"), ("texture", "Vector")],
+        [("texture", "Vector")],
+        [("texture", "Vector")],
     ]
     l_outputs = [
-        [("texture", 0), ("texture", 0), ("texture", 1), ("uv_maps[0]", 0)],
-        [("texture", 0), ("texture", 0), ("uv_maps[0]", 0)],
-        [("texture", 0), ("uv_maps[1]", 0)],
-        [("texture", 0), ("uv_maps[0]", 0)],
-        [("uv_maps[0]", 0)],
-        [("uv_maps[0]", 0)],
+        [("texture", "Color"), ("texture", "Color"), ("texture", "Alpha"), ("uv_maps[0]", "UV")],
+        [("texture", "Color"), ("texture", "Color"), ("uv_maps[0]", "UV")],
+        [("texture", "Color"), ("uv_maps[1]", "UV")],
+        [("texture", "Color"), ("uv_maps[0]", "UV")],
+        [("uv_maps[0]", "UV")],
+        [("uv_maps[0]", "UV")],
     ]
+    node_dict : Dict[str, bpy.types.Node]
     node_dict = {
         "BSDF": BSDF,
         "texture": None,
@@ -77,8 +78,9 @@ def bpy_material_from_definition(
                 for (node_input, output) in zip(inputs, outputs):
                     n_input = node_dict[node_input[0]]
                     n_output = node_dict[output[0]]
+
                     material_link.new(
-                        n_input.inputs[node_input[1]], n_output.outputs[output[1]]
+                        n_input.inputs.get(node_input[1]), n_output.outputs.get(output[1])
                     )
         except RuntimeError:
             logger.error("Could not find %s", file, exc_info=True)
