@@ -85,6 +85,7 @@ def apply_material_to_mesh(
     Apply the Materials to the mesh
     """
     # Set up materials
+    face_offset = 0
     for material_reference in material_references:
         material_definiton = material_reference.materialDefinition
         current_material = list_materials[material_definiton]
@@ -97,9 +98,10 @@ def apply_material_to_mesh(
             uv_node.uv_map = uv_layer.name
 
         # Apply the materials
-        for face in range(material_reference.facesSize):
-            polygon = mesh.polygons[face_offset + face]
+        for polygon in mesh.polygons[face_offset:face_offset + material_reference.facesSize]:
             polygon.material_index = len(obj.data.materials) - 1
+        
+        face_offset += material_reference.facesSize
 
 
 def bpy_mesh_from_definition(
@@ -137,8 +139,8 @@ def bpy_mesh_from_definition(
 
     if file_type == FileType.MODEL:
         mesh_faces = [
-            create_face(mesh_indexes[(i * 3) : (i * 3) + 3])
-            for i in range(mesh_description.facesCount)
+            create_face(mesh_indexes[i : i + 3])
+            for i in range(0 , mesh_description.indiciesSize, 3)
         ]
     if file_type == FileType.SKIN:
         mesh_faces = [
@@ -147,7 +149,7 @@ def bpy_mesh_from_definition(
             else create_face(
                 [mesh_indexes[i + 1], mesh_indexes[i], mesh_indexes[i + 2]]
             )
-            for i in range(mesh_description.facesCount)
+            for i in range(0 , mesh_description.indiciesSize, 3)
         ]
 
     mesh = bpy.data.meshes.new(mesh_name)
