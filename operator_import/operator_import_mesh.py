@@ -15,7 +15,6 @@ from ..operator_utilities.file_definition_bwm import (
 )
 from ..operator_utilities.vector_utils import correct_uv, zxy_to_xyz
 
-
 # Section
 def bpy_obj_from_defintion(
     mesh_description: MeshDescription,
@@ -61,19 +60,17 @@ def setup_mesh_uvlayers(
         for i in range(uvs_count)
     ]
 
-    uv_layers = [
-        mesh.uv_layers.new(name=f"{bwm_name}_{UVType(i).name}")
-        for i in range(uvs_count)
-    ]
-    for i, uv_layer in enumerate(uv_layers):
-        for faces in mesh.polygons.values():
-            for faces_vertex_index, loop_index in zip(
-                faces.vertices, faces.loop_indices
-            ):
-                vertex_index = faces_vertex_index + vertex_offset
-                uv_layer.data[loop_index].uv = mesh_uvs[i][vertex_index]
+    if (len(mesh.uv_layers) < uvs_count):
+        for i in range(uvs_count):
+            mesh.uv_layers.new(name=f"{bwm_name}_{UVType(i).name}")
 
-    return uv_layers
+    for i, uv_layer in enumerate(mesh.uv_layers):
+        for loop in mesh.loops.values():
+            vertex_index = loop.vertex_index + vertex_offset
+            loop_index = loop.index
+            uv_layer.data[loop_index].uv = mesh_uvs[i][vertex_index]
+
+    return mesh.uv_layers
 
 
 def apply_material_to_mesh(
@@ -103,8 +100,6 @@ def apply_material_to_mesh(
         for face in range(material_reference.facesSize):
             polygon = mesh.polygons[face_offset + face]
             polygon.material_index = len(obj.data.materials) - 1
-
-    return
 
 
 def bpy_mesh_from_definition(
