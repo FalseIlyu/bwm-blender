@@ -6,8 +6,8 @@ import struct
 
 
 def read_bool(reader: BufferedReader) -> bool:
-    """ Return the nex byte in a file in a boolean"""
-    return bool(int.from_bytes(reader.read(1), 'little'))
+    """Return the nex byte in a file in a boolean"""
+    return bool(int.from_bytes(reader.read(1), "little"))
 
 
 def read_float(reader: BufferedReader) -> float:
@@ -33,9 +33,9 @@ def read_str(reader: BufferedReader, size: int) -> str:
     return reader.read(size).decode("utf-8").replace("\0", "")
 
 
-def write_bool(writer: BufferedWriter, value: bool) -> None:
-    """ Return the nex byte in a file in a boolean"""
-    writer.write(value.to_bytes(1, byteorder="little", signed=False))
+def write_bool(writer: BufferedWriter, bool: bool) -> None:
+    """Return the nex byte in a file in a boolean"""
+    writer.write(bool.to_bytes(1, byteorder="little", signed=False))
 
 
 def write_float(writer: BufferedWriter, value: float) -> None:
@@ -43,20 +43,12 @@ def write_float(writer: BufferedWriter, value: float) -> None:
     writer.write(struct.pack("<f", value))
 
 
-def write_int16(
-    writer: BufferedWriter,
-    value: int,
-    signed: bool = False
-) -> None:
-    writer.write(value.to_bytes(2, byteorder="little", signed=signed))
+def write_int16(writer: BufferedWriter, int: int, signed: bool = False) -> None:
+    writer.write(int.to_bytes(2, byteorder="little", signed=signed))
 
 
-def write_int32(
-    writer: BufferedWriter,
-    value: int,
-    signed: bool = False
-) -> None:
-    writer.write(value.to_bytes(4, byteorder="little", signed=signed))
+def write_int32(writer: BufferedWriter, int: int, signed: bool = False) -> None:
+    writer.write(int.to_bytes(4, byteorder="little", signed=signed))
 
 
 def write_vector(writer: BufferedWriter, vector: Iterable, type_fun) -> None:

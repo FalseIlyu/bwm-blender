@@ -1,8 +1,16 @@
-import bpy
-import bmesh
+"""
+Module charged with creating the description of the different meshes and
+associate them with the proper material definition. It also build the
+vertices and indexes array.
+"""
+# coding=utf-8
+from typing import Dict, List, Tuple
 import math
 from statistics import mean
-from typing import Dict, List, Tuple
+
+import numpy as np
+import bpy
+import bmesh
 
 from ..operator_utilities.file_definition_bwm import (
     BWMFile,
@@ -11,28 +19,28 @@ from ..operator_utilities.file_definition_bwm import (
     MaterialRef,
     Vertex,
     Stride,
-    UVType
+    UVType,
 )
-from ..operator_utilities.vector_utils import (
-    correct_uv,
-    xyz_to_zxy
-)
+from ..operator_utilities.vector_utils import correct_uv, xyz_to_zxy
 
 
 def organise_mesh_data(
     mesh_collections: bpy.types.Collection,
     bwm_data: BWMFile,
 ) -> BWMFile:
-
+    """
+    Create the mesh descriptions and related material references, and organise
+    vertices and indexes accordingly.
+    """
     bwm_data.meshDescriptions = []
-    type = bwm_data.modelHeader.type
+    m_type = bwm_data.modelHeader.type
     l_materials = list(bpy.data.materials)
 
     for lod in range(1, 5):
         lod_collection = mesh_collections.children.get(f"lod{lod}")
         if lod_collection:
             for _, obj in lod_collection.objects.items():
-                if obj.type == 'MESH':
+                if obj.type == "MESH":
                     mesh_desc = create_basic_description(obj, lod)
                     bwm_data.meshDescriptions.append(mesh_desc)
 
@@ -55,14 +63,12 @@ def organise_mesh_data(
                             continue
 
                         vertices_add, d_indexes = organise_vertex_data(
-                            l_polygons,
-                            obj.data.vertices,
-                            obj.data.uv_layers
+                            l_polygons, obj.data.vertices, obj.data.uv_layers
                         )
                         bwm_data.vertices.extend(vertices_add)
 
                         indexes_add = organise_index_data(
-                            l_polygons, vertex_offset, d_indexes, type
+                            l_polygons, vertex_offset, d_indexes, m_type
                         )
                         bwm_data.indexes.extend(indexes_add)
 
@@ -71,9 +77,7 @@ def organise_mesh_data(
                         # Create material
                         material = obj.material_slots[material_slot].material
                         mat_ref = MaterialRef()
-                        mat_ref.materialDefinition = l_materials.index(
-                            material
-                        )
+                        mat_ref.materialDefinition = l_materials.index(material)
                         mat_ref.facesOffset = face_offset
                         mat_ref.vertexOffset = vertex_offset
                         mat_ref.indiciesOffset = indicies_offset
@@ -81,6 +85,9 @@ def organise_mesh_data(
                         mat_ref.indiciesSize = len(indexes_add)
                         mat_ref.vertexSize = len(vertices_add)
                         mesh_desc.materialRefs.append(mat_ref)
+
+                        if m_type == FileType.SKIN:
+                            mat_ref.indiciesSize -= 2
 
                         face_offset += mat_ref.facesSize
                         indicies_offset += mat_ref.indiciesSize
@@ -93,32 +100,30 @@ def organise_mesh_data(
                     mesh_desc.vertexSize -= mesh_desc.vertexOffset
 
                     mesh_desc.materialRefsCount = len(mesh_desc.materialRefs)
-                    create_bbox(
-                        mesh_desc,
-                        obj.data.vertices
-                    )
+                    create_bounds(mesh_desc, obj.data.vertices)
 
     return bwm_data
 
 
 def create_basic_description(
-    obj: bpy.types.Object,
-    lod: int
+    obj: bpy.types.Object, lod: int
 ) -> MeshDescription:
-
+    """
+    Build the most basic information of the mesh description,
+    name, lod, transformation matrix and volume.
+    """
     mesh_desc = MeshDescription()
 
     mesh_desc.unknown_int = 2
     if lod > 1:
         mesh_desc.unknown_int = 1
-    mesh_desc.name = obj.name.split('.')[0]
-    rotation = xyz_to_zxy(
-        [vector[:3] for vector in obj.matrix_world[:3]]
-    )
-    mesh_desc.zaxis = rotation[0]
+    mesh_desc.name = obj.name.split(".")[0]
+    rotation = np.transpose(obj.matrix_world)
+    rotation = xyz_to_zxy(rotation[:3, :3])
+    mesh_desc.zaxis = rotation[2]
     mesh_desc.yaxis = rotation[1]
-    mesh_desc.xaxis = rotation[2]
-    mesh_desc.position = obj.location
+    mesh_desc.xaxis = rotation[0]
+    mesh_desc.position = xyz_to_zxy(obj.location)
 
     # Organise mesh description metadata
     obj = obj.to_mesh(preserve_all_data_layers=True)
@@ -133,11 +138,15 @@ def create_basic_description(
 def organise_vertex_data(
     polygons: List[bpy.types.MeshPolygon],
     vertices: List[bpy.types.MeshVertex],
-    uv_layers: List[bpy.types.MeshUVLoopLayer]
+    uv_layers: List[bpy.types.MeshUVLoopLayer],
 ) -> Tuple[List[bpy.types.MeshVertex], Dict[int, int]]:
-    poly_vertices = list({
-        vertex for polygon in polygons for vertex in polygon.vertices
-    })
+    """
+    Take the vertices of the mesh and make an array of Black & White 2
+    vertices out of them.
+    """
+    poly_vertices = list(
+        {vertex for polygon in polygons for vertex in polygon.vertices}
+    )
     num_vertex = len(poly_vertices)
 
     ret_vertices = [Vertex(Stride()) for _ in range(num_vertex)]
@@ -145,7 +154,7 @@ def organise_vertex_data(
     vertex = 0
     for face in polygons:
         for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
-            if vert_idx in d_index.keys():
+            if vert_idx in d_index:
                 continue
 
             c_vertex = vertices[vert_idx]
@@ -177,56 +186,50 @@ def organise_index_data(
     faces_seq: List[bpy.types.MeshPolygon],
     vertex_offset: int,
     d_indexes: Dict[int, int],
-    type: int
+    m_type: int,
 ) -> List[int]:
+    """
+    Take the mesh faces and make an array of indexes from them
+    """
 
-    faces = [
-        [index for index in face.vertices]
-        for face in faces_seq
-    ]
-
-    if type == FileType.SKIN:
-        indexes = [
-            index for i in range(len(faces)) for index in faces[i]
-            if i % 4 == 0
+    if m_type == FileType.SKIN:
+        faces = [
+            list(faces_seq[i].vertices)
+            if i % 2 == 0
+            else [
+                faces_seq[i].vertices[1],
+                faces_seq[i].vertices[0],
+                faces_seq[i].vertices[2],
+            ]
+            for i in range(len(faces_seq))
         ]
+        indexes = faces[0][0:2]
+        indexes.extend([face[2] for face in faces[:-1]])
+        indexes.extend(faces[-1])
 
-    elif type == FileType.MODEL:
-        indexes = [
-            index for i in range(len(faces)) for index in faces[i]
-        ]
+    elif m_type == FileType.MODEL:
+        faces = [[index for index in face.vertices] for face in faces_seq]
+        indexes = [index for i in range(len(faces)) for index in faces[i]]
 
     indexes = [d_indexes[i] + vertex_offset for i in indexes]
     return indexes
 
 
-def create_bbox(
-    mesh_desc: MeshDescription,
-    vertices: List[bpy.types.MeshVertex]
+def create_bounds(
+    mesh_desc: MeshDescription, vertices: List[bpy.types.MeshVertex]
 ) -> None:
+    """
+    Compute the bounding box, sphere and the height of the mesh
+    """
     num_vertex = len(vertices)
     mesh_desc.vertexSize = num_vertex
-    loc_list = [tuple(xyz_to_zxy(vertex.co)) for vertex in vertices]
-    x = [loc[0] for loc in loc_list]
-    y = [loc[1] for loc in loc_list]
-    z = [loc[2] for loc in loc_list]
-    mesh_desc.cent = (
-        mean(x),
-        mean(y),
-        mean(z)
-    )
-    mesh_desc.box1 = (
-        min(x),
-        min(y),
-        min(z)
-    )
-    mesh_desc.box2 = (
-        max(x),
-        max(y),
-        max(z)
-    )
-    mesh_desc.radius = max(
-        [math.dist(loc, mesh_desc.cent) for loc in loc_list]
-    )
+    list_loc = [tuple(xyz_to_zxy(vertex.co)) for vertex in vertices]
+    list_x = [loc[0] for loc in list_loc]
+    list_y = [loc[1] for loc in list_loc]
+    list_z = [loc[2] for loc in list_loc]
+    mesh_desc.cent = (mean(list_x), mean(list_y), mean(list_z))
+    mesh_desc.box1 = (min(list_x), min(list_y), min(list_z))
+    mesh_desc.box2 = (max(list_x), max(list_y), max(list_z))
+    mesh_desc.radius = max([math.dist(loc, mesh_desc.cent) for loc in list_loc])
     mesh_desc.unknowns1 = mesh_desc.box2
     mesh_desc.height = mesh_desc.box2[1]

@@ -1,8 +1,6 @@
-# <pep8-80 compliant>
 # coding=utf-8
 """ Structures of a .bwm with associated IO """
 from io import BufferedReader, BufferedWriter
-from colorama import Fore, Style
 from typing import List
 from glob import glob
 from enum import Enum
@@ -12,6 +10,7 @@ if __name__ != "__main__":
     from .file_definition_utilities import *
 else:
     from file_definition_utilities import *
+    from colorama import Fore, Style
     import filecmp
     import json
     import os
@@ -57,37 +56,38 @@ class BWMFile:
         self.modelHeader = LionheadModelHeader(reader)
         self.materialDefinitions = [
             MaterialDefinition(reader)
-            for i in range(self.modelHeader.materialDefinitionCount)
+            for _ in range(self.modelHeader.materialDefinitionCount)
         ]
         self.meshDescriptions = [
             MeshDescription(reader)
-            for i in range(self.modelHeader.meshDescriptionCount)
+            for _ in range(self.modelHeader.meshDescriptionCount)
         ]
         for mesh in self.meshDescriptions:
             mesh.materialRefs = [
-                MaterialRef(reader) for i in range(mesh.materialRefsCount)
+                MaterialRef(reader) for _ in range(mesh.materialRefsCount)
             ]
-        self.bones = [Bone(reader) for i in range(self.modelHeader.boneCount)]
+        self.bones = [Bone(reader, i) for i in range(self.modelHeader.boneCount)]
         self.entities = [
-            Entity(reader) for i in range(self.modelHeader.entityCount)
+            Entity(reader) for _ in range(self.modelHeader.entityCount)
         ]
         self.unknowns1 = [
-            Unknown1(reader) for i in range(self.modelHeader.unknownCount1)
+            Unknown1(reader) for _ in range(self.modelHeader.unknownCount1)
         ]
         self.collisionPoints = [
             CollisionPoint(reader)
-            for i in range(self.modelHeader.collisionPointCount)
+            for _ in range(self.modelHeader.collisionPointCount)
         ]
-        self.strides = [Stride(reader)
-                        for i in range(self.modelHeader.strideCount)]
+        self.strides = [
+            Stride(reader) for _ in range(self.modelHeader.strideCount)
+        ]
         self.vertices = [
             Vertex(self.strides[0], reader)
-            for vertex in range(self.modelHeader.vertexCount)
+            for _ in range(self.modelHeader.vertexCount)
         ]
         self.data = [
             [
                 stride.read_data(reader)
-                for vertex in range(self.modelHeader.vertexCount)
+                for _ in range(self.modelHeader.vertexCount)
             ]
             for stride in self.strides[1:]
         ]
@@ -98,7 +98,7 @@ class BWMFile:
             self.modelHeader.modelCleaveCount = read_int32(reader)
             self.modelCleaves = [
                 (read_float(reader), read_float(reader), read_float(reader))
-                for i in range(self.modelHeader.modelCleaveCount)
+                for _ in range(self.modelHeader.modelCleaveCount)
             ]
 
         return
@@ -111,8 +111,10 @@ class BWMFile:
             size += mesh_description.materialRefsCount * 0x20
         size += self.modelHeader.boneCount * 0x30
         size += self.modelHeader.entityCount * 0x130
-        size += (self.modelHeader.unknownCount1 +
-                 self.modelHeader.collisionPointCount) * 0xC
+        size += (
+            self.modelHeader.unknownCount1
+            + self.modelHeader.collisionPointCount
+        ) * 0xC
         size += self.modelHeader.strideCount * 0x88
 
         return size
@@ -175,8 +177,9 @@ class BWMHeader:
 
     def __init__(self, reader: BufferedReader = None):
         if reader:
-            self.fileIdentifier = (reader.read(40)).decode(
-                ).replace("\0", "")  # 0x00
+            self.fileIdentifier = (
+                (reader.read(40)).decode().replace("\0", "")
+            )  # 0x00
             if "LiOnHeAdMODEL" not in self.fileIdentifier:
                 raise ValueError(
                     "This is not a valid .bwm file (magic string mismatch)."
@@ -396,7 +399,7 @@ class MeshDescription:
             self.materialRefsCount = 1
             self.u2 = 0
             self.lod_level = 1
-            self.name = ''
+            self.name = ""
             self.unknowns3 = [0 for i in range(2)]
             self.materialRefs: List[MaterialRef] = []
 
@@ -470,24 +473,29 @@ class Bone:
     '  Size    :   0x30
     """
 
-    def __init__(self, reader: BufferedReader = None):
+    def __init__(self, reader: BufferedReader = None, count: int = 0):
         if reader:
             self.zaxis = (
                 read_float(reader),
                 read_float(reader),
-                read_float(reader))
+                read_float(reader),
+            )
             self.xaxis = (
                 read_float(reader),
                 read_float(reader),
-                read_float(reader))
+                read_float(reader),
+            )
             self.yaxis = (
                 read_float(reader),
                 read_float(reader),
-                read_float(reader))
+                read_float(reader),
+            )
             self.position = (
                 read_float(reader),
                 read_float(reader),
-                read_float(reader))
+                read_float(reader),
+            )
+            self.name = str(count)
             return
 
     def write(self, writer: BufferedWriter = None):
@@ -507,19 +515,23 @@ class Entity:
             self.zaxis = (
                 read_float(reader),
                 read_float(reader),
-                read_float(reader))
+                read_float(reader),
+            )
             self.xaxis = (
                 read_float(reader),
                 read_float(reader),
-                read_float(reader))
+                read_float(reader),
+            )
             self.yaxis = (
                 read_float(reader),
                 read_float(reader),
-                read_float(reader))
+                read_float(reader),
+            )
             self.position = (
                 read_float(reader),
                 read_float(reader),
-                read_float(reader))
+                read_float(reader),
+            )
             self.name = reader.read(256).decode().replace("\0", "")
             return
         else:
@@ -544,13 +556,13 @@ class Unknown1:
 
     def __init__(self, reader: BufferedReader = None):
         if reader:
-            self.unknown = struct.unpack("<fff", reader.read(12))
+            self.position = struct.unpack("<fff", reader.read(12))
             return
         else:
-            self.unknown = (0.0, 0.0, 0.0)
+            self.position = (0.0, 0.0, 0.0)
 
     def write(self, writer: BufferedWriter = None):
-        write_vector(writer, self.unknown, write_float)
+        write_vector(writer, self.position, write_float)
 
 
 class CollisionPoint:
@@ -573,16 +585,15 @@ class Stride:
     """
     '  Size    :   0x88
     """
+
     strideFormat = [4, 8, 12, 4, 1]
 
     def __init__(self, reader: BufferedReader = None):
         if reader:
             self.count = read_int32(reader)
             self.idSizes = [
-                (
-                    StrideType(read_int32(reader)),
-                    StrideSize(read_int32(reader))
-                ) for i in range(self.count)
+                (StrideType(read_int32(reader)), StrideSize(read_int32(reader)))
+                for i in range(self.count)
             ]
             self.stride = 0
             for (_, ssize) in self.idSizes:
@@ -601,12 +612,16 @@ class Stride:
         data = []
         for (_, sSize) in self.idSizes:
             if sSize == StrideSize.INT or sSize == StrideSize.BYTE:
-                data.append(int.from_bytes(reader.read(
-                    Stride.strideFormat[sSize.value]), byteorder="little"))
+                data.append(
+                    int.from_bytes(
+                        reader.read(Stride.strideFormat[sSize.value]),
+                        byteorder="little",
+                    )
+                )
             elif sSize == StrideSize.FLOAT:
                 data.append(read_float(reader))
             elif sSize == StrideSize.POINT_3D or sSize == StrideSize.TUPLE:
-                vector_size = int(Stride.strideFormat[sSize.value]/4)
+                vector_size = int(Stride.strideFormat[sSize.value] / 4)
                 data.append([read_float(reader) for i in range(vector_size)])
             else:
                 raise ValueError("This isn't a supported stride Datatype")
@@ -628,15 +643,14 @@ class Stride:
                 if sSize == StrideSize.BYTE:
                     writer.write(
                         stride_data[i].to_bytes(
-                            1,
-                            byteorder="little",
-                            signed=False)
+                            1, byteorder="little", signed=False
+                        )
                     )
                 elif sSize == StrideSize.INT:
                     write_int32(writer, stride_data[i])
                 elif sSize == StrideSize.FLOAT:
                     write_float(writer, stride_data[i])
-                elif sSize == StrideSize.VECTOR or sSize == StrideSize.TUPLE:
+                elif sSize == StrideSize.POINT_3D or sSize == StrideSize.TUPLE:
                     write_vector(writer, stride_data[i], write_int32)
                 else:
                     raise ValueError("Not a supported stride Datatype")
@@ -668,7 +682,7 @@ class Vertex:
                 else:
                     raise ValueError(
                         f"This type is not usable for a Vertex {strideId.name}"
-                        )
+                    )
             return
         else:
             self.uvs = []
@@ -692,6 +706,7 @@ def main():
         for filePath in glob(f"{resultPath}\\**"):
             os.remove(filePath)
         os.rmdir(resultPath)
+
     if os.path.exists(resultPath):
         clean_up()
     try:
@@ -704,25 +719,33 @@ def main():
                 try:
                     file = BWMFile(testBWM)
                 except ValueError:
-                    print(f"{Fore.RED}Couldn't read{Style.RESET_ALL}"
-                          f" {fileName}")
+                    print(
+                        f"{Fore.RED}Couldn't read{Style.RESET_ALL}"
+                        f" {fileName}"
+                    )
                     continue
 
                 resultFile = os.path.join(resultPath, fileName)
                 file.write(resultFile)
                 if not filecmp.cmp(filePath, resultFile):
-                    print(f"{Fore.YELLOW}Writing"
-                          f"{Style.RESET_ALL} {fileName} {Fore.YELLOW}"
-                          f"back don't yield an exact copy{Style.RESET_ALL}")
+                    print(
+                        f"{Fore.YELLOW}Writing"
+                        f"{Style.RESET_ALL} {fileName} {Fore.YELLOW}"
+                        f"back don't yield an exact copy{Style.RESET_ALL}"
+                    )
                     allSame = False
                 os.remove(resultFile)
 
         if allSame:
-            print(f"{Fore.GREEN}All files written are exact copies of their"
-                  f" original{Style.RESET_ALL}")
+            print(
+                f"{Fore.GREEN}All files written are exact copies of their"
+                f" original{Style.RESET_ALL}"
+            )
         else:
-            print(f"{Fore.RED}Some written files aren't exact copie of their"
-                  f" original{Style.RESET_ALL}")
+            print(
+                f"{Fore.RED}Some written files aren't exact copie of their"
+                f" original{Style.RESET_ALL}"
+            )
 
         os.rmdir(resultPath)
     except (KeyboardInterrupt, FileExistsError) as e:
