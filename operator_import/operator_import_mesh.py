@@ -149,7 +149,7 @@ def bpy_mesh_from_definition(
             else create_face(
                 [mesh_indexes[i + 1], mesh_indexes[i], mesh_indexes[i + 2]]
             )
-            for i in range(0 , mesh_description.indiciesSize, 3)
+            for i in range(0 , mesh_description.indiciesSize - 2)
         ]
 
     mesh = bpy.data.meshes.new(mesh_name)
